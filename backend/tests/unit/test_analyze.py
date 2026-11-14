@@ -29,7 +29,7 @@ def test_a_missing_field_is_reported() -> None:
 
 
 def test_an_unknown_level_is_reported() -> None:
-    assert digest_problems({**VALID, "level": "pleno"}) == [
+    assert digest_problems({**VALID, "level": "staff"}) == [
         "level must be trainee, junior, mid_level, or senior"
     ]
 
@@ -38,21 +38,23 @@ def test_an_empty_required_text_is_reported() -> None:
     assert digest_problems({**VALID, "resume": "  "}) == ["resume must not be empty"]
 
 
-def test_run_analyze_returns_the_parsed_digest() -> None:
+def test_run_analyze_returns_the_normalized_digest() -> None:
     client = FakeClient([json.dumps(VALID)])
 
-    payload, retries = run_analyze(client, model_id="fake", posting="a posting", attempts=2)
+    payload, retries = run_analyze(client, model_id="fake", posting="a posting with Python", attempts=2)
 
     assert payload == VALID
     assert retries == 0
-    assert "a posting" in client.calls[0]["prompt"]
+    assert "a posting with Python" in client.calls[0]["prompt"]
 
 
 def test_run_analyze_retries_with_the_problems_in_the_prompt() -> None:
-    broken = {**VALID, "level": "pleno"}
+    broken = {**VALID, "level": "staff"}
     client = FakeClient([json.dumps(broken), json.dumps(VALID)])
 
-    payload, retries = run_analyze(client, model_id="fake", posting="a posting", attempts=2)
+    payload, retries = run_analyze(
+        client, model_id="fake", posting="a posting with Python", attempts=2
+    )
 
     assert payload["level"] == "mid_level"
     assert retries == 1
