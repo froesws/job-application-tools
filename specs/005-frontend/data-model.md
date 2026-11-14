@@ -7,10 +7,9 @@ in memory and what it renders; nothing here is persisted.
 
 | Field | Type | Rules |
 | --- | --- | --- |
-| `path` | string | One of `/tailor`, `/runs`, `/settings`, `/ingest`, `/eval`. |
+| `path` | string | One of `/`, `/runs`, `/runs/:id`, `/settings`, `/eval`, `/eval/:runId`. |
 | `profile` | string \| null | Search parameter; absent falls back to the first profile. |
-| `runId` | string \| null | `/runs/:id` only. |
-| `draftId` | string \| null | `/ingest/:id` only. |
+| `runId` | string \| null | `/runs/:id`, or the `run` parameter on the workspace. |
 
 Every route renders inside the shell, so navigation and the profile selector exist on all
 of them.
@@ -74,16 +73,17 @@ origin run.
 | `fallbackUsed` | boolean | Shown as a chip. |
 | `originRunId` | string \| null | Link to the origin when present. |
 
-## IngestionView
+## IngestionDialogState
 
 | Field | Type | Rules |
 | --- | --- | --- |
-| `draftId` | string | From the create response. |
+| `draftId` | string | From the create response; lives only while the dialog is open. |
+| `target` | string | Profile slug to save into; preselected from the shell. |
 | `state` | `processing` \| `complete` \| `failed` \| `stalled` | Polled. |
 | `sections` | map name -> SectionStatus | One row per section, updated live. |
 | `items` | DraftItemView[] | Both variants; the translated one marked. |
 | `counts` | map status -> integer | Pending, approved, rejected, duplicate, unverified. |
-| `readiness` | Readiness | `{ready, missing[]}`; commit enabled only when ready. |
+| `readiness` | Readiness | `{ready, missing[]}`; Save refused while not ready. |
 | `skippedFiles` | string[] | Named files that produced no text. |
 
 ## EvaluationView
@@ -105,12 +105,12 @@ saving; the warning lists the models that would become stale.
 
 | Key | Used by | Invalidated by |
 | --- | --- | --- |
-| `profiles` | shell, every screen | ingestion commit |
+| `profiles` | shell, every screen | a save in the upload dialog |
 | `profile(slug)` | tailoring, ingestion | profile edits |
 | `runs` | history | tailor, render, delete |
 | `run(id)` | history detail, tailoring | render of a derived run |
 | `settings(profile)` | settings, shell badge | admission changes |
-| `draft(id)` | ingestion | decisions, retry, commit |
+| `draft(id)` | upload dialog | decisions, retry, save |
 | `evalSet(profile)` | evaluation | add, annotate, remove |
 | `evalRun(id)` | evaluation | polling; terminal state |
 

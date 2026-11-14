@@ -19,7 +19,8 @@ npm run dev
 ```
 
 Observe: `src/api/schema.d.ts` is generated from the checked-in schema, the dev server
-starts, and the shell renders with five destinations.
+starts, and the shell renders with four destinations: Workspace, History, Settings,
+Evaluate.
 
 ## 2. Shell and profile selector
 
@@ -44,11 +45,14 @@ Open `/runs`.
 
 Observe: runs newest first with date, profile, enterprise, title, language, and page count.
 Open one: digest, selection, warnings, and the report link. A derived run links to its
-origin. With no runs, the empty state points at `/tailor`.
+origin. With no runs, the empty state points at the workspace (`/`).
 
-## 5. Tailoring
+## 5. Workspace
 
-Open `/tailor?profile=<slug>`, paste a posting, submit.
+Open `/?profile=<slug>`. Before any profile exists, confirm the generate action is
+disabled with its reason beside it.
+
+Paste a posting and submit.
 
 Observe: a labelled loading state, then the digest and the proposed selection. The posting
 input is cleared. The preview shows the actual PDF. Both downloads work and are separate.
@@ -68,16 +72,18 @@ Then remove a required bullet to make the selection invalid.
 
 Observe: the error names the offending item and the previous run stays intact.
 
-## 7. Ingestion
+## 7. Upload dialog
 
-Open `/ingest?profile=<slug>` and upload a text-layer PDF plus a scanned one.
+In the workspace, click Upload and select a text-layer PDF plus a scanned one.
 
-Observe: per-section progress rows settle one by one; the scanned file is listed by name
-as skipped; the draft appears with both variants per item, the translated one marked.
-Approve, reject, edit, and bulk approve; then commit.
+Observe: the dialog opens without leaving the page; per-section progress rows settle one by
+one; the scanned file is listed by name as skipped; items appear with both variants, the
+translated one marked. Approve, reject, edit, and bulk approve. Choose the target profile
+(preselected when one exists), then click **Save**.
 
-Observe: a refused commit shows the missing list and keeps the review; a successful commit
-returns to the profile list with the new profile selected.
+Observe: a refused Save shows the missing list and keeps the review; a successful Save
+closes the dialog, selects the new profile, and enables the generate action. Cancel on a
+new upload asks for confirmation and leaves the profile untouched.
 
 ## 8. Evaluation
 
@@ -114,12 +120,13 @@ is conveyed by colour alone.
 
 - [ ] Types are generated from the checked-in schema, not hand-written.
 - [ ] The profile survives a reload and drives every screen.
+- [ ] Generate is disabled with a reason until a profile exists.
 - [ ] The backend-unreachable state is explicit.
 - [ ] Every screen has labelled loading, empty, and error states.
 - [ ] The key is never rendered; settings shows booleans and admission state only.
 - [ ] The posting is sent once and never returned or persisted.
 - [ ] Edits re-render with the origin and never re-analyze.
-- [ ] Ingestion shows section progress, skipped files, and both variants.
+- [ ] The upload dialog shows section progress, skipped files, and both variants, and ends in Save or Cancel.
 - [ ] Evaluation lists, captures, annotates with a warning, runs, and admits with confirmation.
 - [ ] `make check` includes typecheck, tests, and build.
 - [ ] Keyboard-only navigation reaches every action.
