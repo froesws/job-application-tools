@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from cvtailor.agents.analyze import run_analyze
+from cvtailor.agents.ingest import build_items, run_section
 from cvtailor.core.errors import (
     CONFIGURATION_ERROR,
     EXTRACTION_LIMIT_EXCEEDED,
@@ -22,12 +23,12 @@ from cvtailor.core.errors import (
     TailorError,
 )
 from cvtailor.core.extraction import Block, extract, has_text_layer, text_length
-from cvtailor.core.ingestion import Draft, new_draft_sections
+from cvtailor.core.ingestion import Draft, SectionStatus, new_draft_sections
 from cvtailor.core.language import detect
 from cvtailor.core.selection import OutputLanguage, Selection
-from cvtailor.llm.client import LLMClient
+from cvtailor.llm.client import InvalidOutput, LLMClient
 from cvtailor.llm.config import LLMConfig, load
-from cvtailor.llm.demo import demo_analyze_client, demo_client
+from cvtailor.llm.demo import demo_analyze_client, demo_client, demo_ingest_client
 from cvtailor.llm.openai_compatible import OpenAICompatibleClient
 from cvtailor.llm.registry import resolve
 from cvtailor.llm.retry import RetryingClient
@@ -145,9 +146,16 @@ class TailorService:
                 "files_skipped": skipped,
             },
         )
+        _apply_section(self, draft, blocks)
         save_blocks(self.paths, draft.id, blocks)
         save_draft(self.paths, draft)
         return draft
+
+    def _ingest_client(self, blocks: list[Block]) -> LLMClient:
+        providers = {entry.provider for entry in self.config.analyze}
+        if providers == {"fake"}:
+            return demo_ingest_client(blocks)
+        return self._routed(providers)
 
     def read_draft(self, draft_id: str) -> Draft:
         return load_draft(self.paths, draft_id)
@@ -252,3 +260,27 @@ def _require_valid_posting(posting: str) -> None:
             INVALID_POSTING,
             f"The posting exceeds {POSTING_MAX_CHARS} characters.",
         )
+
+
+def _apply_section(service: TailorService, draft: Draft, blocks: list[Block]) -> None:
+    """Run the experience section and record its result on the draft."""
+    text = " ".join(block.text for block in blocks)
+    model = _entry_label(service.config.analyze)
+    try:
+        proposals, retries = run_section(
+            service._ingest_client(blocks),
+            model_id=model,
+            section="experience",
+            blocks=blocks,
+            language=detect(text),
+            attempts=service.config.validation_retries,
+        )
+    except InvalidOutput:
+        draft.sections["experience"] = SectionStatus(
+            state="failed", reason="invalid_output", attempts=service.config.validation_retries
+        )
+        draft.state = "failed"
+        return
+    draft.items = build_items("experience", proposals, blocks)
+    draft.sections["experience"] = SectionStatus(state="ok", attempts=retries + 1)
+    draft.state = "complete"

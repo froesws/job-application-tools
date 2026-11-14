@@ -57,15 +57,17 @@ def test_a_text_pdf_creates_a_readable_draft(client: TestClient) -> None:
 
     assert created.status_code == 202
     draft = created.json()
-    assert draft["state"] == "processing"
+    assert draft["state"] == "complete"
     assert draft["extraction"]["files_read"] == 1
     assert draft["sources"][0]["format"] == "pdf"
+    assert draft["items"][0]["verification"]["verified"] is True
+    assert draft["items"][0]["translated_variant"] == "pt"
 
     read = client.get(f"/api/ingestions/{draft['id']}")
     assert read.status_code == 200
     body = read.json()
     assert body["blocks"]
-    assert body["counts"]["pending"] == 0
+    assert body["counts"]["pending"] == 1
     assert body["readiness"]["ready"] is False
 
 

@@ -11,6 +11,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
+from cvtailor.core.extraction import Block
 from cvtailor.core.selection import OutputLanguage
 from cvtailor.llm.fake import FakeClient
 
@@ -54,3 +55,17 @@ def _selection(master: dict[str, Any]) -> dict[str, Any]:
         "research": {},
         "research_ids": [],
     }
+
+
+def demo_ingest_client(blocks: list[Block]) -> FakeClient:
+    """Propose one bullet from the first substantial block, quote included."""
+    text = next((block.text for block in blocks if len(block.text) > 20), blocks[0].text)
+    quote = text[:120].strip()
+    item = {
+        "kind": "bullet",
+        "parent": "role1",
+        "fields": {"en": quote, "pt": quote},
+        "quote": quote,
+        "source_language": "en",
+    }
+    return FakeClient([json.dumps({"items": [item]})])
