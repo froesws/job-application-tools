@@ -372,7 +372,7 @@ deterministic core with no model in the loop, exercised directly.
 - Profile deletion or renaming.
 - Tailoring, rendering, the report, and the market corpus, which belong to
   `001-cv-tailor-v1-mvp`.
-- A dedicated ingestion UI beyond what the frontend spec delivers.
+- The ingestion screen itself, which is delivered by `specs/005-frontend`.
 
 ## Further Notes
 
