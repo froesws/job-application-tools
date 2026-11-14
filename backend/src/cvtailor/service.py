@@ -6,6 +6,7 @@ pipeline owns the steps themselves; the adapters own presentation.
 
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from typing import Any
 
@@ -14,6 +15,10 @@ from cvtailor.core.selection import OutputLanguage
 from cvtailor.llm.client import LLMClient
 from cvtailor.llm.config import LLMConfig, load
 from cvtailor.llm.demo import demo_client
+from cvtailor.llm.openai_compatible import OpenAICompatibleClient
+from cvtailor.llm.registry import resolve
+from cvtailor.llm.retry import RetryingClient
+from cvtailor.llm.routing import RoutedClient
 from cvtailor.pipeline import RunResult, run_tailor
 from cvtailor.storage.paths import Paths, from_env
 from cvtailor.storage.profiles import load_master
@@ -57,10 +62,26 @@ class TailorService:
         providers = {entry.provider for entry in self.config.analyze + self.config.tailor}
         if providers == {"fake"}:
             return demo_client(master, language)
-        raise TailorError(
-            CONFIGURATION_ERROR,
-            "Only the fake provider is wired so far; the OpenAI-compatible adapter lands in this feature's S3.",
-        )
+        routes: dict[str, LLMClient] = {}
+        for provider in sorted(providers):
+            resolved = resolve(provider)
+            key = os.environ.get(resolved.key_env, "")
+            if not key:
+                raise TailorError(
+                    CONFIGURATION_ERROR, f"{resolved.key_env} is not set for {provider}."
+                )
+            routes[provider] = RetryingClient(
+                OpenAICompatibleClient(
+                    provider=provider,
+                    key=key,
+                    base_url=resolved.base_url,
+                    timeout_s=self.config.call_timeout_s,
+                ),
+                attempts=3,
+                backoff_s=1.0,
+                budget_s=self.config.run_budget_s,
+            )
+        return RoutedClient(routes)
 
 
 def _entry_label(chain: list[Any]) -> str:
