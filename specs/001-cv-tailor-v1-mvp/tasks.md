@@ -146,12 +146,12 @@ each task carries the label of the story group it serves.
 
 **Independent Test**: `report.md` carries every required section; `render --origin` derives a run with no model call.
 
-- [ ] T046 [US4] Complete gap computation in `backend/src/cvtailor/core/gaps.py`: gaps, coverage 0–1, red flags (`level_mismatch`, `uncovered_must_have`, `blocklist_adjacent`, `auto_fit_trimmed`, `model_unadmitted`), section counts, checklist
-- [ ] T047 [US4] Complete `backend/src/cvtailor/core/report.py` with digest, counts, gaps, coverage, red flags, models, retries, fallback status, layout warnings, checklist
-- [ ] T048 [US7] Implement `render --profile --origin --selection` in `backend/src/cvtailor/cli.py`, copying digest and analysis and never touching the origin
-- [ ] T049 [US7] Implement `runs list`, `runs show`, and the `review` loop with `open`, `edit`, `rerender`, and `quit` in `backend/src/cvtailor/cli.py`
-- [ ] T050 [US4] Add report-content tests in `backend/tests/integration/test_report.py`
-- [ ] T051 [P] [US5] Add derived-run tests: origin untouched, `origin_run_id` set, no model call, in `backend/tests/integration/test_derived_run.py`
+- [x] T046 [US4] Complete gap computation in `backend/src/cvtailor/core/gaps.py`: gaps, coverage 0–1, red flags (`level_mismatch`, `uncovered_must_have`, `blocklist_adjacent`, `auto_fit_trimmed`, `model_unadmitted`), section counts, checklist
+- [x] T047 [US4] Complete `backend/src/cvtailor/core/report.py` with digest, counts, gaps, coverage, red flags, models, retries, fallback status, layout warnings, checklist
+- [x] T048 [US7] Implement `render --profile --origin --selection` in `backend/src/cvtailor/cli.py`, copying digest and analysis and never touching the origin
+- [x] T049 [US7] Implement `runs list`, `runs show`, and the `review` loop with `open`, `edit`, `rerender`, and `quit` in `backend/src/cvtailor/cli.py`
+- [x] T050 [US4] Add report-content tests in `backend/tests/integration/test_report.py`
+- [x] T051 [P] [US5] Add derived-run tests: origin untouched, `origin_run_id` set, no model call, in `backend/tests/integration/test_derived_run.py`
 
 **Checkpoint**: quickstart 6–7 pass; the CLI is a complete product.
 
@@ -163,24 +163,24 @@ each task carries the label of the story group it serves.
 
 **Independent Test**: contract tests pass for all ten routes; `make check-openapi` detects drift.
 
-- [ ] T052 [US1] Implement request and response models in `backend/src/cvtailor/api/schemas.py`
-- [ ] T053 [US1] Implement `{code, message}` serialization and status mapping in `backend/src/cvtailor/api/errors.py`
-- [ ] T054 [US9] Implement the app factory with localhost binding and a single allowed CORS origin in `backend/src/cvtailor/api/app.py`
-- [ ] T055 [US1] Implement the ten routes from `contracts/api.md` in `backend/src/cvtailor/api/routes.py`
-- [ ] T056 [US8] Implement `python -m cvtailor.api.openapi_dump` writing `backend/openapi.json` in `backend/src/cvtailor/api/openapi_dump.py`
-- [ ] T057 [US8] Add a `check-openapi` target comparing a regenerated schema to `backend/openapi.json` and wire it into `Makefile`
-- [ ] T058 [US1] Add contract tests for all ten routes in `backend/tests/contract/test_api_contract.py`
-- [ ] T059 [P] [US8] Add redaction tests: no posting text and no key in any response, and `/api/settings` returns booleans and admission state only, in `backend/tests/contract/test_redaction.py`
-- [ ] T060 [P] [US9] Add profiles-endpoint tests: slug order, `has_blocklist`, `profile_not_found`, in `backend/tests/contract/test_profiles.py`
+- [x] T052 [US1] Implement request and response models in `backend/src/cvtailor/api/schemas.py`
+- [x] T053 [US1] Implement `{code, message}` serialization and status mapping in `backend/src/cvtailor/api/errors.py`
+- [x] T054 [US9] Implement the app factory with localhost binding and a single allowed CORS origin in `backend/src/cvtailor/api/app.py`
+- [x] T055 [US1] Implement the ten routes from `contracts/api.md` in `backend/src/cvtailor/api/routes.py`
+- [x] T056 [US8] Implement `python -m cvtailor.api.openapi_dump` writing `backend/openapi.json` in `backend/src/cvtailor/api/openapi_dump.py`
+- [x] T057 [US8] Add a `check-openapi` target comparing a regenerated schema to `backend/openapi.json` and wire it into `Makefile`
+- [x] T058 [US1] Add contract tests for all ten routes in `backend/tests/contract/test_api_contract.py`
+- [x] T059 [P] [US8] Add redaction tests: no posting text and no key in any response, and `/api/settings` returns booleans and admission state only, in `backend/tests/contract/test_redaction.py`
+- [x] T060 [P] [US9] Add profiles-endpoint tests: slug order, `has_blocklist`, `profile_not_found`, in `backend/tests/contract/test_profiles.py`
 
 **Checkpoint**: quickstart 9–10 pass.
 
 ---
 
-## Phase 8: Slice S6 — Frontend (US3, US4, US5, US6, US8)
+## Phase 8: Slice S6 — Frontend (moved to `specs/005-frontend`)
 
-**Blocked by**: `specs/002-profile-ingestion` — the first screen is uploading a CV, and the
-ingestion UI arrives with that spec's API.
+**Moved**: the frontend is now owned by `specs/005-frontend`. The tasks below are kept
+for history and must not be executed here.
 
 **Goal**: review and re-render in a browser.
 
@@ -205,10 +205,10 @@ ingestion UI arrives with that spec's API.
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T073 [P] Add an import-graph test asserting `core` imports no FastAPI, LLM, storage, or service module in `backend/tests/unit/test_core_purity.py`
-- [ ] T074 [P] Write decision notes for the profile layout, the corpus, and the admission rule in `docs/decisions.md`
-- [ ] T075 Run the full `quickstart.md` checklist and record the result
-- [ ] T076 Update `README.md` with install, profile setup, CLI usage, and the API start command
+- [x] T073 [P] Add an import-graph test asserting `core` imports no FastAPI, LLM, storage, or service module in `backend/tests/unit/test_core_purity.py`
+- [x] T074 [P] Write decision notes for the profile layout, the corpus, and the admission rule in `docs/decisions.md`
+- [x] T075 Run the full `quickstart.md` checklist and record the result
+- [x] T076 Update `README.md` with install, profile setup, CLI usage, and the API start command
 
 ---
 
