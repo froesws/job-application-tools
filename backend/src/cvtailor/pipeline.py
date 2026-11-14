@@ -24,12 +24,15 @@ from cvtailor.core.errors import (
     PAGE_OVERFLOW,
     TailorError,
 )
+from cvtailor.core.fallback import fallback_selection
+from cvtailor.core.gaps import pre_rank
+from cvtailor.core.language import detect
 from cvtailor.core.layout import LayoutReport
 from cvtailor.core.layout import evaluate as evaluate_layout
 from cvtailor.core.render_pdf import render_pdf
 from cvtailor.core.report import render_report
 from cvtailor.core.selection import OutputLanguage, to_renderer
-from cvtailor.llm.client import LLMClient
+from cvtailor.llm.client import InvalidOutput, LLMClient
 from cvtailor.storage.corpus import append_if_new
 from cvtailor.storage.paths import Paths
 from cvtailor.storage.profiles import BLOCKLIST, profile_dir
@@ -46,6 +49,7 @@ class RunResult:
     layout: LayoutReport
     models: dict[str, dict[str, Any]]
     retries: dict[str, int]
+    fallback_used: bool
 
 
 def run_tailor(
@@ -71,15 +75,21 @@ def run_tailor(
         date=moment.date().isoformat(),
         detected_language=language,
     )
-    selection, tailor_retries = run_tailor_step(
-        client,
-        model_id=models["tailor"],
-        master=master,
-        digest=digest,
-        candidates=catalog(master),
-        language=language,
-        attempts=validation_retries,
-    )
+    fallback_used = False
+    try:
+        selection, tailor_retries = run_tailor_step(
+            client,
+            model_id=models["tailor"],
+            master=master,
+            digest=digest,
+            candidates=catalog(master),
+            language=language,
+            attempts=validation_retries,
+        )
+    except InvalidOutput:
+        selection = fallback_selection(master, digest, language)
+        tailor_retries = validation_retries
+        fallback_used = True
     _check_blocklist(paths, profile, master, selection)
     run_id = new_run_id(moment)
     staging = create_staging(paths, run_id)
@@ -99,6 +109,9 @@ def run_tailor(
             layout=layout,
             models=models,
             retries={"analyze": analyze_retries, "tailor": tailor_retries},
+            fallback_used=fallback_used,
+            detected_language=detect(posting),
+            pre_rank=pre_rank(master, digest),
             moment=moment,
         )
         final = commit_run(staging, paths, run_id)
@@ -112,6 +125,7 @@ def run_tailor(
         layout=layout,
         models={step: {"id": model, "admitted": False} for step, model in models.items()},
         retries={"analyze": analyze_retries, "tailor": tailor_retries},
+        fallback_used=fallback_used,
     )
 
 
@@ -174,6 +188,9 @@ def _write_artifacts(
     layout: LayoutReport,
     models: dict[str, str],
     retries: dict[str, int],
+    fallback_used: bool,
+    detected_language: str,
+    pre_rank: dict[str, dict[str, float]],
     moment: datetime,
 ) -> None:
     model_records: dict[str, dict[str, Any]] = {
@@ -191,13 +208,19 @@ def _write_artifacts(
         "digest_hash": _digest_hash(digest),
         "models": model_records,
         "retries": retries,
-        "fallback_used": False,
+        "fallback_used": fallback_used,
         "paths": {},
     }
     _write_json(staging / "digest.json", digest)
     _write_json(
         staging / "analysis.json",
-        {"detected_language": language, "must_have_skills": [], "nice_to_have_skills": [], "keywords": [], "pre_rank": {}},
+        {
+            "detected_language": detected_language,
+            "must_have_skills": [],
+            "nice_to_have_skills": [],
+            "keywords": [],
+            "pre_rank": pre_rank,
+        },
     )
     _write_json(staging / "selection.json", selection.model_dump())
     _write_json(staging / "run.json", record)
@@ -208,7 +231,7 @@ def _write_artifacts(
             layout=layout,
             models=model_records,
             retries=retries,
-            fallback_used=False,
+            fallback_used=fallback_used,
             profile=profile,
         ),
         encoding="utf-8",
