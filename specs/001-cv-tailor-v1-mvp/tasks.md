@@ -46,14 +46,14 @@ each task carries the label of the story group it serves.
 
 **Purpose**: Dependencies, test runner, environment, and the gates the backend can run today.
 
-- [ ] T001 Add runtime dependencies with `uv add fastapi uvicorn pydantic` in `pyproject.toml`
-- [ ] T002 [P] Add development dependencies with `uv add --dev pytest httpx mypy` in `pyproject.toml`
-- [ ] T003 [P] Configure pytest with `testpaths = ["backend/tests"]` and `pythonpath = ["backend/src"]` in `pyproject.toml`
-- [ ] T004 [P] Configure mypy for `backend/src` with `ignore_missing_imports` for `reportlab` in `pyproject.toml`
-- [ ] T005 [P] Create `.env.example` documenting `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `ANALYZE_CHAIN`, `TAILOR_CHAIN`, `CALL_TIMEOUT_S`, `RUN_BUDGET_S`, `FRONTEND_ORIGIN` with no values
-- [ ] T006 [P] Extend `.gitignore` with `profile/*/master.json` and `profile/*/master.json.bak.*`
-- [ ] T007 Rewrite the `check-committed-data` target in `Makefile` to fail when any `profile/*/master.json` is tracked
-- [ ] T008 [P] Create `backend/tests/conftest.py` with a temporary profile/data root fixture and a scripted fake `LLMClient` fixture
+- [x] T001 Add runtime dependencies with `uv add fastapi uvicorn pydantic` in `pyproject.toml`
+- [x] T002 [P] Add development dependencies with `uv add --dev pytest httpx mypy` in `pyproject.toml`
+- [x] T003 [P] Configure pytest with `testpaths = ["backend/tests"]` and `pythonpath = ["backend/src"]` in `pyproject.toml`
+- [x] T004 [P] Configure mypy for `backend/src` with `ignore_missing_imports` for `reportlab` in `pyproject.toml`
+- [x] T005 [P] Create `.env.example` documenting `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `ANALYZE_CHAIN`, `TAILOR_CHAIN`, `CALL_TIMEOUT_S`, `RUN_BUDGET_S`, `FRONTEND_ORIGIN` with no values
+- [x] T006 [P] Extend `.gitignore` with `profile/*/master.json` and `profile/*/master.json.bak.*`
+- [x] T007 Rewrite the `check-committed-data` target in `Makefile` to fail when any `profile/*/master.json` is tracked
+- [x] T008 [P] Create `backend/tests/conftest.py` with a temporary profile/data root fixture and a scripted fake `LLMClient` fixture
 
 **Checkpoint**: `make check` runs pytest instead of skipping it.
 
@@ -65,22 +65,22 @@ each task carries the label of the story group it serves.
 
 **⚠️ CRITICAL**: no slice can start until this phase completes.
 
-- [ ] T009 [P] [US5] Implement the selection model and the `pt-BR`/`en-US` to `pt`/`en` mapping in `backend/src/cvtailor/core/selection.py`
-- [ ] T010 [P] [US2] Implement profile-scoped selection validation in `backend/src/cvtailor/core/validation.py`: unknown role, unknown summary, 1–4 summaries, 1–7 distinct bullets per role, lead-block-first, unknown skill, unknown project
-- [ ] T011 [P] [US3] Implement per-profile blocklist loading and case-insensitive substring matching in `backend/src/cvtailor/core/blocklist.py`; a missing file is an empty list
-- [ ] T012 [P] [US3] Implement page-fit evaluation in `backend/src/cvtailor/core/layout.py`: `pages > 1` becomes `page_overflow` with section counts; `bullet_cap` produces `bullets_trimmed` naming the dropped ids; `font_scale < 1.0` produces `font_scaled`
-- [ ] T013 [P] [US9] Implement root resolution for `profile/`, `data/runs/`, `data/corpus.jsonl` in `backend/src/cvtailor/storage/paths.py`, overridable by environment for tests
-- [ ] T014 [P] [US9] Implement profile listing in slug order, master loading, and save with a timestamped backup in `backend/src/cvtailor/storage/profiles.py`
-- [ ] T015 [P] [US6] Implement run creation in `backend/src/cvtailor/storage/runs.py`: `YYYYMMDDTHHMMSSZ-xxxx` ids, `.tmp-<id>` then rename, listing that skips `.tmp-*`, and run reading
-- [ ] T016 [P] [US1] Implement the append-only corpus in `backend/src/cvtailor/storage/corpus.py`, idempotent on `sha256` of the normalized posting text
-- [ ] T017 [P] [US8] Implement the dependency-free `LLMClient` protocol, JSON extraction from noisy output, and bounded retries in `backend/src/cvtailor/llm/client.py`
-- [ ] T018 [P] [US8] Implement the scripted fake provider in `backend/src/cvtailor/llm/fake.py`, selected by `LLM_PROVIDER=fake`
-- [ ] T019 [P] [US8] Implement `provider:model` chain and limit resolution in `backend/src/cvtailor/llm/config.py`
-- [ ] T020 [P] [US1] Write delimited prompt templates with the ignore-embedded-instructions rule in `backend/src/cvtailor/agents/prompts.py`
-- [ ] T021 [US1] Implement the analyze step in `backend/src/cvtailor/agents/analyze.py`, returning a digest constrained to the contract fields
-- [ ] T022 [P] [US2] Add unit tests for selection, validation, blocklist, and layout in `backend/tests/unit/test_selection.py`, `test_validation.py`, `test_blocklist.py`, `test_layout.py`
-- [ ] T023 [P] [US9] Add storage tests with temporary roots in `backend/tests/unit/test_storage_profiles.py`, `test_storage_runs.py`, `test_storage_corpus.py`
-- [ ] T024 [P] [US8] Add LLM layer tests against the fake provider in `backend/tests/unit/test_llm_client.py`
+- [x] T009 [P] [US5] Implement the selection model and the `pt-BR`/`en-US` to `pt`/`en` mapping in `backend/src/cvtailor/core/selection.py`
+- [x] T010 [P] [US2] Implement profile-scoped selection validation in `backend/src/cvtailor/core/validation.py`: unknown role, unknown summary, 1–4 summaries, 1–7 distinct bullets per role, lead-block-first, unknown skill, unknown project
+- [x] T011 [P] [US3] Implement per-profile blocklist loading and case-insensitive substring matching in `backend/src/cvtailor/core/blocklist.py`; a missing file is an empty list
+- [x] T012 [P] [US3] Implement page-fit evaluation in `backend/src/cvtailor/core/layout.py`: `pages > 1` becomes `page_overflow` with section counts; `bullet_cap` produces `bullets_trimmed` naming the dropped ids; `font_scale < 1.0` produces `font_scaled`
+- [x] T013 [P] [US9] Implement root resolution for `profile/`, `data/runs/`, `data/corpus.jsonl` in `backend/src/cvtailor/storage/paths.py`, overridable by environment for tests
+- [x] T014 [P] [US9] Implement profile listing in slug order, master loading, and save with a timestamped backup in `backend/src/cvtailor/storage/profiles.py`
+- [x] T015 [P] [US6] Implement run creation in `backend/src/cvtailor/storage/runs.py`: `YYYYMMDDTHHMMSSZ-xxxx` ids, `.tmp-<id>` then rename, listing that skips `.tmp-*`, and run reading
+- [x] T016 [P] [US1] Implement the append-only corpus in `backend/src/cvtailor/storage/corpus.py`, idempotent on `sha256` of the normalized posting text
+- [x] T017 [P] [US8] Implement the dependency-free `LLMClient` protocol, JSON extraction from noisy output, and bounded retries in `backend/src/cvtailor/llm/client.py`
+- [x] T018 [P] [US8] Implement the scripted fake provider in `backend/src/cvtailor/llm/fake.py`, selected by `LLM_PROVIDER=fake`
+- [x] T019 [P] [US8] Implement `provider:model` chain and limit resolution in `backend/src/cvtailor/llm/config.py`
+- [x] T020 [P] [US1] Write delimited prompt templates with the ignore-embedded-instructions rule in `backend/src/cvtailor/agents/prompts.py`
+- [x] T021 [US1] Implement the analyze step in `backend/src/cvtailor/agents/analyze.py`, returning a digest constrained to the contract fields
+- [x] T022 [P] [US2] Add unit tests for selection, validation, blocklist, and layout in `backend/tests/unit/test_selection.py`, `test_validation.py`, `test_blocklist.py`, `test_layout.py`
+- [x] T023 [P] [US9] Add storage tests with temporary roots in `backend/tests/unit/test_storage_profiles.py`, `test_storage_runs.py`, `test_storage_corpus.py`
+- [x] T024 [P] [US8] Add LLM layer tests against the fake provider in `backend/tests/unit/test_llm_client.py`
 
 **Checkpoint**: core and storage are green in isolation; no network, no real keys.
 
@@ -92,14 +92,14 @@ each task carries the label of the story group it serves.
 
 **Independent Test**: quickstart steps 4–8 pass with `LLM_PROVIDER=fake`.
 
-- [ ] T025 [US1] Implement the application service in `backend/src/cvtailor/service.py` (analyze, validate, blocklist, render, report, persist)
-- [ ] T026 [US1] Implement ordered step execution and run assembly in `backend/src/cvtailor/pipeline.py`, writing artifacts into the run directory
-- [ ] T027 [US4] Implement the minimal report in `backend/src/cvtailor/core/report.py`: digest, section counts, models, layout warnings
-- [ ] T028 [US7] Implement the `tailor` command with `--profile`, `--posting`/`--stdin`, `--non-interactive`, `--json` in `backend/src/cvtailor/cli.py`
-- [ ] T029 [US1] Add an integration test for a full fake-provider run in `backend/tests/integration/test_tailor_fake.py`: seven artifacts, one-page PDF, profile recorded in `run.json`
-- [ ] T030 [P] [US3] Add tests for `blocklist_hit`, missing blocklist, `page_overflow`, and `profile_not_found` in `backend/tests/integration/test_render_failures.py`
-- [ ] T031 [P] [US9] Add a corpus test: one line per unique posting, none on repeat, no posting text in the record, in `backend/tests/integration/test_corpus.py`
-- [ ] T032 [US7] Verify exit codes `3`, `4`, `6`, `9` from `contracts/cli.md` in `backend/tests/integration/test_cli_exit_codes.py`
+- [x] T025 [US1] Implement the application service in `backend/src/cvtailor/service.py` (analyze, validate, blocklist, render, report, persist)
+- [x] T026 [US1] Implement ordered step execution and run assembly in `backend/src/cvtailor/pipeline.py`, writing artifacts into the run directory
+- [x] T027 [US4] Implement the minimal report in `backend/src/cvtailor/core/report.py`: digest, section counts, models, layout warnings
+- [x] T028 [US7] Implement the `tailor` command with `--profile`, `--posting`/`--stdin`, `--non-interactive`, `--json` in `backend/src/cvtailor/cli.py`
+- [x] T029 [US1] Add an integration test for a full fake-provider run in `backend/tests/integration/test_tailor_fake.py`: seven artifacts, one-page PDF, profile recorded in `run.json`
+- [x] T030 [P] [US3] Add tests for `blocklist_hit`, missing blocklist, `page_overflow`, and `profile_not_found` in `backend/tests/integration/test_render_failures.py`
+- [x] T031 [P] [US9] Add a corpus test: one line per unique posting, none on repeat, no posting text in the record, in `backend/tests/integration/test_corpus.py`
+- [x] T032 [US7] Verify exit codes `3`, `4`, `6`, `9` from `contracts/cli.md` in `backend/tests/integration/test_cli_exit_codes.py`
 
 **Checkpoint**: run quickstart 4–8. Commit.
 
@@ -111,14 +111,14 @@ each task carries the label of the story group it serves.
 
 **Independent Test**: a fake returning unknown ids still yields a valid one-page selection marked `fallback_used`.
 
-- [ ] T033 [P] [US2] Implement tokenization and overlap scoring in `backend/src/cvtailor/core/keywords.py`
-- [ ] T034 [P] [US2] Implement the curated alias table in `backend/src/cvtailor/core/aliases.py`
-- [ ] T035 [P] [US1] Implement PT/EN function-word detection with a `pt-BR` tie-break in `backend/src/cvtailor/core/language.py`
-- [ ] T036 [P] [US1] Implement digest normalization and skill verification in `backend/src/cvtailor/core/digest.py`: trim, drop empty, dedupe, level aliases, unsupported skills dropped, unknown fields discarded
-- [ ] T037 [US2] Implement pre-rank scores for roles, summaries, bullets, skills, projects, and research in `backend/src/cvtailor/core/gaps.py`
-- [ ] T038 [US2] Implement the deterministic fallback in `backend/src/cvtailor/core/fallback.py`: role by title overlap, lead block first, bullets by coverage, skills by overlap
-- [ ] T039 [P] [US2] Add unit tests for keywords, aliases, language, digest, and fallback in `backend/tests/unit/test_keywords.py`, `test_digest.py`, `test_fallback.py`
-- [ ] T040 [US2] Add an integration test where every model returns unknown ids and the fallback still renders, in `backend/tests/integration/test_fallback.py`
+- [x] T033 [P] [US2] Implement tokenization and overlap scoring in `backend/src/cvtailor/core/keywords.py`
+- [x] T034 [P] [US2] Implement the curated alias table in `backend/src/cvtailor/core/aliases.py`
+- [x] T035 [P] [US1] Implement PT/EN function-word detection with a `pt-BR` tie-break in `backend/src/cvtailor/core/language.py`
+- [x] T036 [P] [US1] Implement digest normalization and skill verification in `backend/src/cvtailor/core/digest.py`: trim, drop empty, dedupe, level aliases, unsupported skills dropped, unknown fields discarded
+- [x] T037 [US2] Implement pre-rank scores for roles, summaries, bullets, skills, projects, and research in `backend/src/cvtailor/core/gaps.py`
+- [x] T038 [US2] Implement the deterministic fallback in `backend/src/cvtailor/core/fallback.py`: role by title overlap, lead block first, bullets by coverage, skills by overlap
+- [x] T039 [P] [US2] Add unit tests for keywords, aliases, language, digest, and fallback in `backend/tests/unit/test_keywords.py`, `test_digest.py`, `test_fallback.py`
+- [x] T040 [US2] Add an integration test where every model returns unknown ids and the fallback still renders, in `backend/tests/integration/test_fallback.py`
 
 **Checkpoint**: the constitution's graceful-degradation rule is proved with no provider.
 
@@ -130,11 +130,11 @@ each task carries the label of the story group it serves.
 
 **Independent Test**: with a chain in `.env`, `tailor` reaches a provider; a dead provider falls through; `model_unadmitted` appears.
 
-- [ ] T041 [US8] Implement the stdlib `urllib` OpenAI-compatible adapter in `backend/src/cvtailor/llm/openai_compatible.py`
-- [ ] T042 [US8] Implement the provider registry (base URL default and key variable per provider) in `backend/src/cvtailor/llm/registry.py`
-- [ ] T043 [US8] Implement transient retries with backoff, per-call timeout, and the run budget in `backend/src/cvtailor/llm/client.py`
-- [ ] T044 [US8] Record `admitted: false` per model in run metadata and surface `model_unadmitted` in the CLI summary in `backend/src/cvtailor/pipeline.py` and `backend/src/cvtailor/cli.py`
-- [ ] T045 [P] [US8] Add adapter tests against a local stub HTTP server, never a real key, in `backend/tests/unit/test_openai_compatible.py`
+- [x] T041 [US8] Implement the stdlib `urllib` OpenAI-compatible adapter in `backend/src/cvtailor/llm/openai_compatible.py`
+- [x] T042 [US8] Implement the provider registry (base URL default and key variable per provider) in `backend/src/cvtailor/llm/registry.py`
+- [x] T043 [US8] Implement transient retries with backoff, per-call timeout, and the run budget in `backend/src/cvtailor/llm/client.py`
+- [x] T044 [US8] Record `admitted: false` per model in run metadata and surface `model_unadmitted` in the CLI summary in `backend/src/cvtailor/pipeline.py` and `backend/src/cvtailor/cli.py`
+- [x] T045 [P] [US8] Add adapter tests against a local stub HTTP server, never a real key, in `backend/tests/unit/test_openai_compatible.py`
 
 **Checkpoint**: every run is marked unadmitted until the evaluation follow-up.
 
