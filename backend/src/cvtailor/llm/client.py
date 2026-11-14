@@ -15,6 +15,10 @@ class LLMError(Exception):
     """Anything the model layer refuses to pass upward."""
 
 
+class TransientLLMError(LLMError):
+    """A provider failure worth retrying: rate limit, server error, or timeout."""
+
+
 class InvalidOutput(LLMError):
     """The answer could not be parsed or failed validation after every attempt."""
 
