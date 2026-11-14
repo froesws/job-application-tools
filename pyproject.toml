@@ -1,0 +1,16 @@
+[project]
+name = "cv-matcher"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "froesws", email = "froes.ws@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "reportlab>=5.1.0",
+    "specify>=0.0.9",
+]
+
+[tool.uv]
+package = false
