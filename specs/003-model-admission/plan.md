@@ -15,8 +15,8 @@ text of the referenced items, so any change that would invalidate the score is
 detectable. Admitting writes evidence, never configuration: the chains stay where the
 operator put them.
 
-The whole loop is reachable without a terminal: a fourth frontend route captures a
-posting, annotates it, runs the evaluation, and admits the model after a confirmation.
+The backend exposes everything the screen needs; the screen itself — capture, annotation,
+run progress, and the admit confirmation — is delivered by `specs/005-frontend`.
 
 ## Technical Context
 
@@ -63,7 +63,6 @@ Evaluated against constitution v2.2.0.
 | VI. Fixed pipeline and deliberate scope | The harness composes the existing fixed steps; no agent framework; no new dependency | PASS |
 | The threshold is literal | The set is exactly ten postings, so "ten of ten" and "nine of ten" always have a denominator | PASS |
 | Core stays pure | Dataset validation, hashing, and metrics live in `core`; no network, no storage, no service import | PASS |
-| Frontend stack matches the constitution | The screen uses the existing React, TypeScript, Material UI, TanStack Query, and generated-client setup; no new library | PASS |
 | No unresolved clarification | Decisions are recorded in [research.md](./research.md) | PASS |
 
 No gate fails.
@@ -101,18 +100,12 @@ backend/src/cvtailor/
 │   ├── routes.py        # eval routes; settings learns the profile parameter
 │   └── schemas.py       # eval request and response models
 └── cli.py               # eval run | status | admit | withdraw | compare
-
-frontend/src/
-├── pages/
-│   └── EvaluationPage.tsx
-└── viewmodels/
-    └── useEvaluation.ts
 ```
 
 **Structure Decision**: the scoring is pure and joins `core`; the persistence joins
 `storage`; the orchestration joins the application service; the routes join `api`; the
-command group joins the CLI; the screen joins the frontend that 001 already establishes.
-The feature adds no layer and no dependency.
+command group joins the CLI. The evaluation screen lives in `specs/005-frontend`, which
+owns the shell and every route. The feature adds no layer and no dependency.
 
 The one change to an existing route is `GET /api/settings?profile=`, which now reads the
 admission records and reports state per chain entry for that profile.
@@ -158,16 +151,9 @@ Done when: every route in the API contract passes a contract test with the fake 
 the settings response reports state and reason per chain entry for the requested
 profile; no route or response carries a key or a posting text beyond the set itself.
 
-**E7 — The evaluation screen.**
-Scope: the fourth route, the list, capture by paste or run import, annotation, the
-invalidation warning, replacement, the run with per-posting progress, metrics, and
-admit/withdraw with confirmation.
-Done when: `npm run typecheck`, Vitest, and the build pass and join `make check`; the
-screen drives a full evaluation against the fake model without a terminal; admitting
-requires a confirmation; a stale state is visible with its reason.
-
-E7 depends on 001's frontend shell. In delivery order it comes after that shell, which
-makes 003's last slice the last thing built.
+**The evaluation screen is not a slice of this plan.** It is delivered by
+`specs/005-frontend`, on top of the routes E6 exposes. This plan closes when E1 through E6
+are done and quickstart steps 1–11 pass from the CLI and `curl`.
 
 ## Complexity Tracking
 
@@ -175,4 +161,4 @@ makes 003's last slice the last thing built.
 | --- | --- | --- |
 | A new command group and a stored admission record | The threshold has to be checked against something and remembered between sessions. | Re-running the evaluation every session would make admission meaningless; keeping the result only in chat loses it on context loss. |
 | Hashing the prompt and the referenced item text | The spec requires precise invalidation. | Invalidating on any profile edit makes admission useless; invalidating on nothing makes it a lie. |
-| One frontend route and an eval API | The operator asked for a training mode; annotating ten postings as JSON files is the friction that would keep the set from ever existing. | Files-only was rejected because the set would never be built. CLI-only capture was rejected because the final and most sensitive step, admitting, would still force a terminal. |
+| An eval API beyond the CLI | The screen in `specs/005-frontend` needs to list, capture, annotate, run, and admit; annotating ten postings as JSON files is the friction that would keep the set from ever existing. | Files-only was rejected because the set would never be built. A CLI-only flow was rejected because the most sensitive step, admitting, would still force a terminal. |
