@@ -108,10 +108,11 @@ logs/
 *.sqlite3
 data/
 
-# Personal profile data is never committed. The example schema is committed
-# instead; developers copy it to profile/master.json locally.
-profile/master.json
-profile/master.json.bak.*
+# Personal profile data is never committed. Profiles live in directories named
+# by slug; the examples stay flat files so the selector never lists them.
+profile/*/master.json
+profile/*/master.json.bak.*
+profile/*/blocklist.txt
 
 # --- Local agent workflow (not committed) -------------------------------------
 # The durable planning state, its source routing, and the generated agent guide
