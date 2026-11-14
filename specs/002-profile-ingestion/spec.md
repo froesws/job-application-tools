@@ -26,11 +26,11 @@ before it enters the master.
 The candidate drops one or more CV files into the app and names the profile. The
 backend extracts the text, asks a model to propose master items, and verifies in code
 that every proposal carries an exact quote that appears in the extracted text. The
-result is a draft: a list of proposed items grouped by master section, each one
-showing its quote and its verification status, plus proposals to translate items that
-lack a variant. Nothing is written to the master until the candidate decides on each
-item. Approved items receive generated ids and are appended to the profile's master,
-which is backed up first. The profile then appears in the existing selector and the
+result is a draft: proposed items grouped by master section, each showing its quote,
+its verification status, and both language variants — the one taken from the file and
+the one translated, marked as such. Nothing is written to the master until the candidate
+decides on each item. Approved items receive generated ids and are appended to the
+profile's master, which is backed up first. The profile then appears in the existing selector and the
 tailoring pipeline can use it immediately.
 
 The same flow is available from the CLI, including a non-interactive mode that emits
@@ -82,12 +82,12 @@ JSON, so a profile can be built or updated without the web UI.
 31. As a job seeker, I want approved items appended in a predictable order per section, so that the CV reads sensibly after an import.
 32. As a job seeker, I want the new profile to appear in the selector in name order, so that it is usable immediately after onboarding.
 
-### Localization
+### Bilingual items
 
-33. As a job seeker, I want the draft to flag items that lack an EN or PT variant, so that I know which parts would fall back to one language.
-34. As a job seeker, I want a proposed translation with a short reason, so that I can judge it before approving.
-35. As a job seeker, I want to approve or reject each translation separately, so that a bad translation never reaches the CV.
-36. As a job seeker, I want to see which items still lack a variant after the draft, so that I can finish the profile deliberately.
+33. As a job seeker, I want every proposed item to arrive in both languages, so that one decision yields a CV I can send in either language.
+34. As a job seeker, I want to see which variant came from my file and which was translated, so that I know what I am trusting.
+35. As a job seeker, I want the translation shown beside the source text, so that I can judge it without opening the original.
+36. As a job seeker, I want to edit or reject an item whose translation is wrong, so that a bad translation never reaches the CV.
 
 ### Privacy and safety
 
@@ -112,6 +112,8 @@ JSON, so a profile can be built or updated without the web UI.
 49. As a job seeker, I want to see whether the profile would render before I commit, so that I never write an unusable master.
 50. As a job seeker, I want to retry a failed section without uploading the file again, so that one bad section does not cost me the whole draft.
 51. As a job seeker, I want to know when the time budget cut off the remaining sections, so that I can retry exactly those.
+52. As a job seeker, I want to watch each section settle while the draft builds, so that I know it is working and where it stalled.
+53. As a job seeker, I want an abandoned draft to disappear after a week, so that my CV text does not sit on disk forever.
 
 ## Implementation Decisions
 
@@ -127,25 +129,27 @@ JSON, so a profile can be built or updated without the web UI.
 
 ### Extraction
 
-- Accepted formats: PDF with a text layer, and DOCX. Legacy `.doc`, images, and
-  scanned PDFs are rejected with distinct error codes.
+- Accepted formats: PDF with a text layer, and DOCX. Legacy `.doc` and images are
+  rejected with distinct error codes.
 - PDF text is read with `pypdf` 7.1.0; DOCX with `python-docx` 1.2.0. Both were
   resolved against CPython 3.14 before this spec was written.
-- A PDF whose pages yield less than a minimum of extractable characters is treated
-  as having no text layer.
+- A file that yields fewer than 200 extractable characters is treated as having no
+  text layer. That file is skipped with a visible warning naming it; the draft
+  continues with the files that produced text. If every file is skipped, the upload
+  fails with the code of the first rejection.
 - Extraction is a pure function from file bytes to structured text: a list of blocks
   with their source page or paragraph index. It is deterministic and testable
   without a model.
 - The uploaded file is read into memory, extracted, and dropped. It is never stored
   in the draft directory.
-- Limits: 10 MB per file, up to 5 files per draft, and a total extracted-text cap
-  that fails the draft rather than truncating it silently.
+- Limits: 10 MB per file, up to 5 files per draft, and a total extracted-text cap of
+  200,000 characters that fails the draft rather than truncating it silently.
 
 ### Model calls
 
 - The model is called once per section: person, summaries, skills, experience,
   research, projects, education, certifications. Each call returns only items for its
-  section, each with its quote, constrained to a schema.
+  section, each with its quote and its translated variant, constrained to a schema.
 - Each section gets bounded validation retries with the errors fed back, following the
   existing LLM layer rules.
 - Budget: 60 seconds per call and 600 seconds for the whole ingestion. When the budget
@@ -154,6 +158,8 @@ JSON, so a profile can be built or updated without the web UI.
 - A failed section never invalidates the rest of the draft. The draft exposes a
   `retry_section` action that re-runs only that section from the stored extracted
   text, keeps every decision already taken, and does not require a new upload.
+- When every section fails, the draft ends in `state: failed` and the client reports
+  it as `model_unavailable`. A partial draft is never reported as a failure.
 
 ### Quote verification
 
@@ -201,6 +207,8 @@ JSON, so a profile can be built or updated without the web UI.
   existing decisions.
 - Commit is allowed while some items are still pending or rejected; those are left
   out and reported. Commit is refused when no item is approved.
+- The commit summary is additive: added plus skipped equals the total item count, and
+  skipped is broken down by pending, rejected, unverified, and duplicates.
 - Commit first computes the master that would result and validates it with the same
   rules the renderer needs: at least one role option, at least one summary block with
   `lead`, and at least one experience role with bullets. Failure returns
@@ -231,24 +239,30 @@ JSON, so a profile can be built or updated without the web UI.
   the translation rule below: the proposal carries the source location text and is
   marked `translated`.
 
-### Localization proposals
+### Bilingual items
 
-- A translation proposal may only be created for an item the user has already
-  approved in the same draft. It carries the item's exact source text, the proposed
-  text, and a short reason, and it is marked `translated` so it is never confused
-  with a quote.
-- A proposal must introduce no claim absent from its source item. Numbers, named
-  entities, technologies, and scope must survive.
-- Proposals are separate items with their own decisions. Approving one fills the
-  missing variant; rejecting one leaves the item with a single variant.
-- The verifier flags changed numbers or entities as a warning on the proposal;
-  approval is still the user's call.
+- Every master text field is bilingual. At ingestion, one variant is taken from the
+  file and verified by quote; the other is translated from it and marked `translated`
+  on that field. One decision approves both.
+- The translated variant carries its source text and a short reason, so the reviewer
+  sees what it was derived from without opening the original file.
+- The translated variant must introduce no claim absent from its source. Numbers,
+  named entities, technologies, and scope must survive; a changed number or entity
+  raises a warning on the item, and approval is still the user's call.
+- Rejecting an item rejects both variants. Editing one variant marks the item
+  `user_edited`; the other variant is regenerated only if the user asks for it, never
+  silently.
 - No translation is produced or applied during tailoring or rendering.
 
 ### API
 
 - Create a draft: upload one or more files with the target profile slug and a
-  create-if-missing flag. Returns the draft with items and statuses.
+  create-if-missing flag. Returns `202` at once with the draft id and
+  `state: processing`; sections settle in the background, and the client polls the
+  draft route to watch them. A draft whose every section fails ends in `state:
+  failed`. Inference never blocks the request for the whole budget.
+- A draft past its seven-day lifetime is deleted during the next ingestion request;
+  its id then answers `draft_not_found`.
 - Read a draft: returns items, verification results, duplicates, counts, per-section
   status, the readiness verdict with its missing list, and the extraction summary.
   The extracted text is available per block for context, never as the original file.
@@ -270,11 +284,14 @@ JSON, so a profile can be built or updated without the web UI.
 ### CLI
 
 - `ingest` takes a profile slug, one or more file paths, an optional create flag,
-  and non-interactive and JSON flags.
-- `ingest review DRAFT_ID` runs the interactive loop: show the item with its quote
-  and verification result, print the readiness verdict and per-section status, and
-  accept `approve`, `reject`, `edit`, `approve-verified`, `retry SECTION`, `next`,
-  `prev`, and `commit`.
+  non-interactive and JSON flags, and an optional decisions file.
+- Without a decisions file, `ingest` builds the draft and stops; nothing is committed.
+  A decisions file supplies explicit `{item_id, action}` entries, which are applied
+  and then committed. There is no auto-approval path.
+- `ingest review DRAFT_ID` runs the interactive loop: show both variants with the
+  translated one marked, the quote, the verification result and the duplicate state,
+  print the readiness verdict and per-section status, and accept `approve`, `reject`,
+  `edit`, `approve-verified`, `retry SECTION`, `next`, `prev`, and `commit`.
 - `ingest show DRAFT_ID` prints the draft as JSON.
 - Exit codes follow the existing CLI contract; a draft that cannot be produced exits
   with the model-unavailable code, and an unsupported file exits as a usage error.
@@ -283,7 +300,8 @@ JSON, so a profile can be built or updated without the web UI.
 
 - Drafts live under the git-ignored data root in their own directory, holding the
   draft JSON and the extracted text blocks.
-- Source files are never stored. Draft directories are removed on commit or discard.
+- Source files are never stored. Draft directories are removed on commit, on discard,
+  and on the seven-day sweep.
 - The master write reuses the existing profile storage module and its timestamped
   backup rule.
 
@@ -317,12 +335,12 @@ it. A parser bug surfaces there.
 ### Modules under test
 
 - Extraction: PDF with a text layer, DOCX, empty text layer, corrupt file, size and
-  count limits.
+  count limits, one bad file among good ones, and every file bad.
 - Quote verification: exact match, whitespace collapse, curly quotes and dashes,
   NFC normalization, case sensitivity, hyphenated line breaks, non-contiguous quote.
 - Draft building: item grouping by section, per-section failure with partial success,
-  retry of one section from stored text, translation proposals limited to approved
-  items.
+  retry of one section from stored text, a bilingual item reviewed in one decision,
+  and the translated variant marked with its source text.
 - Duplicate detection: the same bullet text is a duplicate inside one role and is
   accepted under a different role; re-upload matches by parent and kind.
 - Approval: per-item decisions, edit marking, `approve_verified` excluding
@@ -330,7 +348,10 @@ it. A parser bug surfaces there.
   nothing is approved.
 - Commit: refusal with `master_not_renderable` and the missing list, new profile
   creation, append into an existing profile, backup creation, id generation and
-  uniqueness, atomicity on failure.
+  uniqueness, atomicity on failure, and an additive summary whose counts close.
+- Lifecycle: the create request returns before the sections finish, polling shows
+  them settle, every-section failure ends in `failed`, and a draft older than seven
+  days is swept.
 - Security: file content and key absent from responses and logs; prompt delimiters
   present.
 
@@ -358,10 +379,11 @@ deterministic core with no model in the loop, exercised directly.
 - **Constitutional basis.** Principle I names the ingestion draft as the only
   exception to "models never author CV text": an item may enter the draft only with
   an exact quote verified in code and marked for review, and may enter the master
-  only after per-item approval. Constitution v2.1.0 adds the translation carve-out:
-  a translation may enter the draft only with the exact source text of an
-  already-approved item, introducing no claim absent from it, and marked
-  `translated`. The Localization Contract governs the review of those proposals.
+  only after per-item approval. Constitution v2.2.0 adds the translation carve-out: a
+  translated variant may enter the draft only with the exact source text of the item
+  it belongs to, introducing no claim absent from it, marked `translated`, and
+  reviewed in the same decision as that source. The Localization Contract still
+  forbids producing or applying a translation during tailoring or rendering.
 - **Sequencing.** This spec is delivered after the pipeline core and before the
   frontend, so the first screen a user meets can be "upload your CV". It also
   unblocks the evaluation set, because must-include bullets come from a real master.
