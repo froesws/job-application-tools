@@ -2,17 +2,18 @@
 
 **Feature Branch**: `001-cv-tailor-v1-mvp`
 **Created**: 2026-11-14
+**Revised**: 2026-11-14 (version 2: named profiles, corpus, unadmitted models)
 **Status**: ready-for-agent
 
 ## Problem Statement
 
-For now the manual process of tailoring a CV to each posting is acceptable — the user reads the job, picks role, bullets, and projects from their profile, and keeps the result to one page. This works for occasional applications but does not scale: swapping between profiles, remembering which selection went to which employer, and re-doing the same edits across English and Portuguese versions becomes tedious quickly.
+For now the manual process of tailoring a CV to each posting is acceptable — the user reads the job, picks role, bullets, and projects from their profile, and keeps the result to one page. This works for occasional applications but does not scale: remembering which selection went to which employer, re-doing the same edits across English and Portuguese versions, and judging whether a posting is worth pursuing all become tedious quickly.
 
-The long-term goal is to let the user save and switch between named profiles (e.g., "software-engineer", "data-scientist", "leadership"), each with its own master profile, and re-render the CV for any posting without re-authoring every section. This spec builds the core pipeline (analyze → validate → render → report) so that when profiles are added, the same validation, one-page guarantee, and report generation apply automatically.
+The user keeps several named profiles (e.g., "software-engineer", "data-scientist", "leadership"), each with its own master and its own blocklist, and switches between them by name. This spec builds the core pipeline (analyze → validate → render → report) over those profiles: the same validation, one-page guarantee, and report generation apply to every profile without re-authoring sections. It also starts a market corpus: every posting analyzed appends its digest, so skill demand and skill co-occurrence accumulate from day one even though the reader arrives later.
 
 ## Solution
 
-A local, single-user application that turns a pasted job posting into a reviewable CV package. The posting is analyzed into a fixed job digest. A model proposes a selection drawn only from ids that already exist in the master profile. Code validates that selection, retries with the validation errors, and falls back to a deterministic selection when every model fails. The existing renderer produces a one-page PDF in the posting's language, and a separate report explains gaps, keyword coverage, red flags, model attempts, and layout warnings. The user reviews the PDF, adjusts the selection, and re-renders without another model call. Every run is stored and can be reopened. A command-line adapter exposes the same flow for automation. Profile support (named saves, profile switching) will be added in a follow‑up spec; the core pipeline is deliberately built so that profiles integrate without changing the validation, renderer, or report contract.
+A local, single-user application that turns a pasted job posting into a reviewable CV package, against one of the user's named profiles. The posting is analyzed into a fixed job digest, which is also appended to a market corpus. A model proposes a selection drawn only from ids that already exist in the chosen profile's master. Code validates that selection, retries with the validation errors, and falls back to a deterministic selection when every model fails. The existing renderer produces a one-page PDF in the posting's language, and a separate report explains gaps, keyword coverage, red flags, model attempts, and layout warnings. The user reviews the PDF, adjusts the selection, and re-renders against the run's origin without another model call. Every run records the profile it used and can be reopened. A command-line adapter exposes the same flow for automation. A model that has not passed the evaluation set runs marked `model_unadmitted`; admission and the evaluation set are delivered later, so the pipeline is usable before they exist.
 
 The product promise is narrower than a writing assistant and stronger: the model chooses and ranks master items, code decides what is allowed, and the user reviews what leaves the app.
 
@@ -88,7 +89,7 @@ The product promise is narrower than a writing assistant and stronger: the model
 
 52. As a job seeker, I want to list previous runs with date, enterprise, title, and language, so that I can find an earlier application.
 53. As a job seeker, I want to reopen a run and see its digest, selection, report, and PDF, so that I can resume review where I stopped.
-54. As a job seeker, I want every run to persist enough state to reproduce the same selection and artifact, so that I can trust the record.
+54. As a job seeker, I want every run to persist its digest, selection, profile name, and artifacts, so that I can see exactly what was produced even if the profile changed later.
 55. As a job seeker, I want run artifacts stored locally and excluded from version control, so that my personal data is not committed.
 
 ### Use the command line
@@ -114,13 +115,24 @@ The product promise is narrower than a writing assistant and stronger: the model
 71. As a maintainer, I want the OpenAPI schema to be the single API contract and a drift check in CI, so that the typed client cannot silently diverge.
 72. As a maintainer, I want the evaluation set of real postings to gate model admission to a chain, so that a model is not promoted on vibes.
 
+### Work with profiles and the market corpus
+
+73. As a job seeker, I want to keep several named profiles, so that one tool serves different career targets.
+74. As a job seeker, I want profiles listed in name order, so that the one I want is always in the same place.
+75. As a job seeker, I want to choose a profile when tailoring or re-rendering, so that the CV can only use items from that profile.
+76. As a job seeker, I want each profile to carry its own blocklist, so that a client name hidden in one profile can still appear in another.
+77. As a job seeker, I want a missing blocklist to mean "nothing blocked", so that a new profile never blocks my first render.
+78. As a job seeker, I want every analyzed posting appended to a market corpus, so that skill demand and skill co-occurrence accumulate without extra work.
+79. As a job seeker, I want the same posting analyzed twice to count once, so that repeated analysis does not distort the market numbers.
+80. As a job seeker, I want the report to mark models that were never evaluated, so that I can weigh the result accordingly.
+
 ## Implementation Decisions
 
 ### Architecture
 
 - The version 1 pipeline is the fixed sequence from the constitution: normalize, analyze, pre-rank, tailor, compute gaps, validate, render, report. Each step implements the `AgentStep` interface; no agent framework is introduced.
-- Code is split into seven layers: HTTP API, pure domain core, LLM client layer, thin prompt builders, storage, settings, and a frontend. The core layer must not import FastAPI, the LLM client, or any web module.
-- Both the HTTP API and the CLI call one application service. Neither adapter owns pipeline logic.
+- Code is split into six backend layers (HTTP API, pure domain core, LLM client layer, thin prompt builders, storage, settings) plus a frontend. The core layer must not import FastAPI, the LLM client, or any web module.
+- Both the HTTP API and the CLI call one application service. Neither adapter owns pipeline logic. The service lives above the layers as package-root modules (`service.py`, `pipeline.py`), not as a seventh layer.
 - FastAPI with uvicorn serves the API; Pydantic v2 defines every request, response, and stored schema; ReportLab remains the only PDF renderer; pytest and ruff are the Python toolchain.
 - The frontend is React, TypeScript, Vite, Material UI, React Router, TanStack Query, and a typed client generated from the backend OpenAPI schema, tested with Vitest and Testing Library.
 
@@ -135,26 +147,33 @@ The product promise is narrower than a writing assistant and stronger: the model
 | `GET /api/runs/{id}` | Return digest, selection, analysis, model log, warnings, and artifact availability. |
 | `GET /api/runs/{id}/cv.pdf` | Serve the rendered PDF. |
 | `GET /api/runs/{id}/report.md` | Serve the report. |
-| `GET /api/profile` | Return the master profile so the UI can resolve labels and offer valid edits. |
-| `GET /api/settings` | Return key-set booleans, active chains, limits, and version info only. |
+| `GET /api/profiles` | List profiles in slug order with their blocklist presence. |
+| `GET /api/profiles/{slug}` | Return one profile's master so the UI can resolve labels and offer valid edits. |
+| `GET /api/settings` | Return key-set booleans, active chains with admission state, limits, and version info only. |
 
 - Errors serialize as an object with `code` and `message`. Stable codes cover invalid posting, digest failure, invalid selection, blocklist hit, page overflow, model unavailable, fallback exhaustion, and configuration error.
-- `POST /api/tailor` accepts posting text plus an optional language override. It never returns the posting text it received.
-- `POST /api/render` accepts a full selection and, optionally, the id of the run it derives from. It copies the base run's digest and analysis, records the origin, and writes a new run. It never mutates the base run.
-- Listing and detail responses omit the raw posting. The posting is stored server-side only to make a run reproducible.
+- `POST /api/tailor` accepts posting text, a required profile slug, and an optional language override. It never returns the posting text it received.
+- `POST /api/render` accepts a required profile slug, a full selection, and the required id of the run it derives from. It copies the base run's digest and analysis, records the origin, and writes a new run. It never mutates the base run.
+- `POST /api/jobs/analyze` takes no profile: the digest depends on the posting only. A successful analyze appends one corpus record.
+- Listing and detail responses omit the raw posting. The posting is stored server-side only to reopen a run.
 - The OpenAPI schema is generated from the Pydantic models and checked into the repository; CI fails when the generated client and the checked-in schema drift.
 
-### Master profile and selection
+### Profiles and selection
 
-- The master profile keeps the schema the renderer already consumes: person, role options, summary blocks, skill groups with core and extra items, experience entries with roles and bullets, research, projects, education, and certifications, with EN and PT text on every item.
-- The profile moves to the constitution's profile root. The renderer's default master path changes accordingly, but the `render_pdf` contract — master and selection in, one-page-fitting PDF plus a result object out — is preserved.
+- A profile is a directory `profile/<slug>/` holding `master.json` and an optional `blocklist.txt`. The slug is both identity and display name; profiles are listed in slug order.
+- The master keeps the schema the renderer already consumes: person, role options, summary blocks, skill groups with core and extra items, experience entries with roles and bullets, research, projects, education, and certifications, with EN and PT text on every item.
+- Tailoring and rendering require a profile; analysis does not. Every run records the profile slug it used.
+- A missing `blocklist.txt` is treated as an empty blocklist, silently. Profiles carry their own blocklists because a client name hidden for one career target may be acceptable for another.
+- The committed examples stay flat (`profile/master.example.json`, `profile/blocklist.example.txt`), so the selector lists only real profile directories.
 - Selection validation remains the authority: unknown ids, skills absent from the master, duplicate bullets, out-of-range counts, and a non-lead first summary block are rejected before any render.
 - Selection counts are fixed: one to four summary blocks, one to seven bullets per role or research item, and any number of projects, matching the renderer's validator.
 
 ### LLM layer
 
-- All model access goes through a single dependency-free `LLMClient` interface. One OpenAI-compatible adapter implements it.
+- All model access goes through a single dependency-free `LLMClient` interface. One OpenAI-compatible adapter implements it and covers OpenAI, OpenRouter, and Gemini's compatible endpoint; a provider whose protocol differs gets one class implementing the same interface.
+- A provider registry maps a provider name to its default base URL and key variable. A chain entry is written `provider:model`, so switching a step from OpenAI to Gemini to DeepSeek means editing one configuration line, not code.
 - Provider, base URL, model ids, timeouts, retry counts, and per-step chains come from environment configuration read by the backend only. A git-ignored environment file at the repository root supplies development values; a committed example file documents names without values.
+- A model that has not passed the evaluation set runs marked `model_unadmitted`. The mark appears in run metadata, the report, the CLI output, and the settings response. Model choice per step is configuration only in version 1; editing chains from the UI is deferred.
 - Validation retries are bounded. The default budget is two retries per step, with validation errors included in the follow-up prompt.
 - Three-run majority voting per id is supported as per-step configuration and is off by default.
 - Transient provider errors are retried with backoff inside the per-run time budget.
@@ -178,16 +197,19 @@ The product promise is narrower than a writing assistant and stronger: the model
 
 ### Persistence
 
-- The master profile lives in the constitution's profile root as human-readable JSON, with a timestamped backup on every save. This release does not add a profile editor, so saves happen through the file or CLI-compatible tooling only.
-- Each run owns a directory under the constitution's run root containing run metadata, the digest, the analysis, the selection, the PDF, the report, and the model log when logging is enabled. The raw posting is stored beside them but is never returned by the API.
-- Run metadata records schema version, creation time, origin run, language, digest hash, models per step, retry counts, fallback status, and artifact paths.
+- Each profile lives in `profile/<slug>/` with a human-readable `master.json`, a timestamped backup beside it on every save, and an optional `blocklist.txt`. This release does not add a profile editor, so saves happen through the file system only.
+- Each run owns a directory under the run root containing run metadata, the digest, the analysis, the selection, the PDF, the report, and the model log when logging is enabled. The raw posting is stored beside them but is never returned by the API.
+- Run metadata records schema version, creation time, origin run, profile slug, language, digest hash, models per step with admission state, retry counts, fallback status, and artifact paths.
+- A run does not snapshot the profile. Re-rendering uses the current profile and fails validation if a selected id no longer exists; the same trade-off keeps run directories small and the profile the single source of truth.
+- Every successful analyze appends one record to `data/corpus.jsonl`: the digest, a hash of the normalized posting, the run date, and the detected language. The posting text is not stored. A repeated analysis of the same text appends nothing.
 - Run ids are UTC-timestamped and sortable. Directory writes are atomic enough that an interrupted run leaves no readable half-run.
-- SQLite is not introduced. The run index is derived by scanning run directories, which keeps one copy of the truth and satisfies the constitution's open storage decision for v1.
-- The profile root, run root, blocklist, and environment file are git-ignored. Only example files and sample postings are committed, and a check fails if a real master profile is committed.
+- SQLite is not introduced. The run index is derived by scanning run directories, and the corpus is read as a JSONL file, which satisfies the constitution's open storage decision for v1.
+- The profile root, run root, corpus, and environment file are git-ignored. Only example files and sample postings are committed, and a check fails if any `profile/*/master.json` is committed.
 
 ### Frontend
 
 - One application shell with three routes: tailoring, run history, and settings.
+- A profile selector lists profiles in slug order and defaults to the first. The chosen profile is sent with every tailor and render request.
 - The tailoring view holds the posting text, analysis result, selection editor, warnings, PDF preview, and download actions. It does not hold the API key or the raw posting after submission.
 - The selection editor covers role title, language, summary blocks, per-role bullet order, skills priority, research, and projects, and always posts to the render endpoint rather than re-running the model.
 - Warnings, gaps, coverage, and red flags render from the run detail response, with the report available as a separate download.
@@ -196,7 +218,8 @@ The product promise is narrower than a writing assistant and stronger: the model
 
 ### CLI
 
-- Commands: tailor from a posting file or stdin, render an existing selection, list and show runs, and an interactive review mode.
+- Commands: tailor from a posting file or stdin, re-render an existing selection against its origin run, list and show runs, and an interactive review mode.
+- `tailor` and `render` require `--profile`. `render` requires `--origin`; there is no bare selection render in version 1.
 - Every command supports a non-interactive mode that emits machine-readable output and writes the same run artifacts as the HTTP path.
 - Review mode prints the digest summary, selected counts, gaps, page count, and artifact paths; can open the PDF in the operating system viewer; can edit the selection in the user's editor; and re-renders only after validation.
 - Secrets are read from the environment or the environment file and never from command-line arguments.
@@ -204,9 +227,9 @@ The product promise is narrower than a writing assistant and stronger: the model
 
 ### Model admission
 
-- A candidate model enters a chain only after scoring against the evaluation set of eight to ten real postings with expected role titles and must-include bullets.
-- The threshold is fixed before evaluation: valid selection in ten of ten runs, expected role title in at least nine of ten, and mean must-include recall of at least 0.9. A model that misses the threshold is not admitted.
-- The evaluation set grows by one posting whenever a model mistake is noticed.
+- Admission is delivered with the evaluation follow-up, after ingestion exists, because must-include bullets come from the user's real master.
+- Until then, this spec records every model as `model_unadmitted` in run metadata, the report, the CLI output, and the settings response. The mark is not cosmetic: it tells the user the model was never scored.
+- The follow-up fixes the threshold before evaluating: valid selection in ten of ten runs, expected role title in at least nine of ten, and mean must-include recall of at least 0.9. A model that misses it is not admitted, and the mark stays.
 
 ### Operational limits
 
@@ -232,15 +255,18 @@ A good test asserts observable behavior at the outermost boundary that can expre
 - **Renderer tests**: exactly one page for every profile in the fixture set, including the worst case; trimming warnings name removed bullets; both languages render.
 - **CLI tests**: tailor from file and stdin; non-interactive mode; render without a model call; validation failure; deterministic fallback; review-mode input handling; artifacts match the HTTP path.
 - **Frontend tests**: the tailoring panel from empty to analysis to selection; warnings and gap display; selection edits triggering a render-only call; download actions; error and loading states; history reopening a run.
-- **Evaluation harness**: the committed posting set scores a candidate model against the admission threshold and records the result.
+- **Corpus tests**: a successful analyze appends one record; a repeated posting appends none; the record carries no posting text; the file survives run deletion.
 
 ### Prior art
 
-The repository has no test suite yet, so this spec establishes the pattern. The renderer's pure functions are the first unit-level seam; the API contract tests become the reference for feature tests, and the CLI and frontend tests follow the same boundary rule. The constitution's M0 requirement that 43 existing tests keep passing cannot be met in this repository because those tests are not present; the new suite starts from this spec.
+The repository has no test suite yet, so this spec establishes the pattern. The renderer's pure functions are the first unit-level seam; the API contract tests become the reference for feature tests, and the CLI and frontend tests follow the same boundary rule. Constitution v2.1.0 makes the suite start from this layout, so the first sprint writes the first tests rather than preserving a baseline that never existed.
 
 ## Out of Scope
 
-- Profile ingestion from uploaded CV files, including quote verification and per-item approval. The master profile is authored as JSON in this release; ingestion is a follow-up spec.
+- Profile ingestion from uploaded CV files, including quote verification and per-item approval. Profiles are authored as JSON in this release; ingestion is a separate spec delivered before the frontend.
+- The market-statistics reader. This spec only appends corpus records; commands and screens that read them come later.
+- The evaluation set and model admission. Models run marked `model_unadmitted` until that follow-up lands.
+- Editing per-step model chains from the UI. Chains are environment configuration in version 1.
 - Scraping LinkedIn or any job board, and automatic applications.
 - Multi-user hosting, accounts, and authentication.
 - Agent frameworks, including CrewAI.
@@ -254,9 +280,11 @@ The repository has no test suite yet, so this spec establishes the pattern. The 
 ## Further Notes
 
 - **Rules conflict to resolve during implementation.** `.opencode/rules/rules.md` forbids adding React Query, but the constitution mandates TanStack Query and React Router. The constitution supersedes the rules, so the rules file must be amended in the same change that adds the frontend.
-- **Renderer relocation.** The renderer currently sits beside the profile and defaults to a file there. Moving it into the core layer must preserve `render_pdf`, and the default master path must follow the constitution's profile root.
-- **Missing baseline.** The constitution references a project plan with milestones and 43 existing tests. Neither is in this repository, so the milestone sequence and the baseline suite cannot be verified here. This spec starts the suite from zero.
-- **Tracker.** No issue tracker is configured and no git remote exists. The spec is published as a file under `specs/`, and `ready-for-agent` is recorded in the status line rather than as a tracker label. Moving it to issues later needs a tracker setup.
+- **Renderer relocation (done).** The renderer now lives at `backend/src/cvtailor/core/render_pdf.py` with `render_pdf` unchanged. It still defaults to a single master path; the plan removes that default in favor of an explicit profile path passed by the service.
+- **Baseline.** The suite starts from zero; constitution v2.1.0 no longer references an existing test count or a project plan. The milestone sequence lives in this plan's Delivery Order.
+- **Tracker.** No issue tracker is configured. The repository has a remote (`froesws/job-application-tools`) and the spec is published as a file under `specs/`, with `ready-for-agent` recorded in the status line rather than as a tracker label. Moving it to issues later needs a tracker setup.
 - **Open decisions this spec resolves.** Storage stays on the filesystem for v1; the UI is English-only; the first chains are a single OpenAI-compatible model per step with optional fallbacks; the model admission threshold is fixed above. Repository visibility remains a product-owner decision and does not affect the code.
 - **Constitutional compliance.** The spec keeps the master profile as the single source of candidate facts, code-owned validation and deterministic fallback, untrusted input handling, human review, provider-agnostic model access, and the fixed pipeline.
-- **Profile support (follow-up).** This spec assumes one master profile. Named profiles with switchable `profile/<name>/master.json` and a profile selector in the UI/CLI are deferred to a separate spec so that the core pipeline stabilizes first.
+- **Profiles in scope.** Named profiles are part of this spec: `profile/<slug>/master.json`, per-profile blocklists, slug order, and a required profile on tailor and render. The renderer still receives one master at a time.
+- **Trade-off accepted.** A run does not snapshot its profile, so editing the profile can make an old selection invalid. The user chose immediate CV generation over historical reproduction, and the PDF on disk remains the record of what was sent.
+- **Deliberately deferred.** Ingestion (separate spec, before the frontend), the corpus reader, and model admission with its evaluation set. Each is recorded above with the reason it waits.
