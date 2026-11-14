@@ -208,7 +208,11 @@ The product promise is narrower than a writing assistant and stronger: the model
 
 ### Frontend
 
-- One application shell with three routes: tailoring, run history, and settings.
+- The delivery of every screen, the shell, the generated client, and the frontend gates
+  is specified in `specs/005-frontend`. The bullets below state the behaviour those
+  screens must exercise; they are not a delivery plan for this spec.
+- One application shell with three routes owned by this behaviour: tailoring, run
+  history, and settings.
 - A profile selector lists profiles in slug order and defaults to the first. The chosen profile is sent with every tailor and render request.
 - The tailoring view holds the posting text, analysis result, selection editor, warnings, PDF preview, and download actions. It does not hold the API key or the raw posting after submission.
 - The selection editor covers role title, language, summary blocks, per-role bullet order, skills priority, research, and projects, and always posts to the render endpoint rather than re-running the model.
