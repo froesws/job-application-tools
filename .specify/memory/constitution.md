@@ -1,28 +1,20 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.1.0 -> 2.1.0
-Bump rationale: the change carries one MAJOR amendment and one MINOR addition, and both
-land together, so the version is 2.1.0. MAJOR: Principle V is redefined — the evaluation
-threshold now governs admission to the default chain instead of blocking every use of a
-configured model, and an unevaluated model runs marked `model_unadmitted`, visible in the
-report, the settings response, and the UI. MINOR: Principle I gains a narrow carve-out for
-translation proposals, making the principle consistent with the Localization Contract
-that already authorized them during ingestion. Principle IV's "reproduce" clause is
-narrowed to match the storage model: a run keeps its selection, digest, and artifacts,
-and re-renders only while its profile still contains the selected ids. Profiles become
-first-class: the master moves to `profile/<slug>/master.json` with a per-profile
-`blocklist.txt`, and a run records the profile it used. A corpus record is appended per
-successful analyze, holding the digest and a posting hash but never the posting text.
-The Layers constraint now names the shared service modules at the package root so the
-six-layer enumeration stays intact.
+Version change: 2.1.0 -> 2.2.0
+Bump rationale: MINOR. Principle I's ingestion carve-out is aligned with how ingestion
+actually works. A master item is bilingual by schema, so a translated variant is
+reviewed in the same decision as its verified source instead of in a second pass;
+requiring the source to be "already approved" would force a second approval for every
+item. The guarantee is unchanged: the translation carries the exact source text, adds
+no claim absent from it, and is marked `translated`.
 
 Amended sections:
-- Core Principle I (translation carve-out)
-- Core Principle IV (reproduce clause)
-- Core Principle V (admission redefined)
-- Technology and Architecture Constraints (Layers, Data)
-- Development Workflow and Quality Gates (evaluation set no longer blocks use)
+- Core Principle I (carve-out wording)
+
+The 2.0.0 and 2.1.0 amendments — unadmitted models, the narrowed reproduce clause,
+named profiles, the corpus, and the first translation carve-out — are recorded in the
+commit history for those versions.
 
 Delivery notes: profile ingestion from uploaded files is specified in a follow-up spec
 and is still a constitutional requirement; it is delivered before the frontend.
@@ -54,10 +46,10 @@ the master profile. Models select and rank master items; they MUST NOT author ne
 The sole exception is the ingestion draft: a proposed item MAY enter the draft only when
 it carries an exact quote verified in code against the uploaded file and is marked for
 review, and it MAY enter the master only after the user approves that item. Within that
-draft, a translation proposal MAY enter only when it carries the exact source text of an
-item the user has already approved in the same draft, introduces no claim absent from
-that source, and is marked `translated` for separate review. The validator MUST reject
-unknown ids, skills absent from the master, and summaries without a lead block. A rendered CV MUST fit on one page; when auto-fit trims content, the trim MUST
+draft, a translated variant MAY enter only when it carries the exact source text of the
+item it belongs to, introduces no claim absent from that source, is marked `translated`,
+and is reviewed in the same decision as that source. The validator MUST reject unknown
+ids, skills absent from the master, and summaries without a lead block. A rendered CV MUST fit on one page; when auto-fit trims content, the trim MUST
 surface as a warning.
 
 Rationale: the PDF is sent to employers under the user's name. One invented claim
@@ -332,4 +324,4 @@ request. Evaluation and model-retention decisions MUST be recorded with data, no
 **Runtime guidance**: `AGENTS.md` and `.opencode/rules/*.md` hold day-to-day conventions
 and MUST remain consistent with this constitution.
 
-**Version**: 2.1.0 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-14
+**Version**: 2.2.0 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-14
