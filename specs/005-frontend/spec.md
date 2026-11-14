@@ -20,12 +20,17 @@ typed client, or the gates that hold the UI to the same standard as the backend.
 
 ## Solution
 
-One React application under `frontend/`, with a single shell and five routes:
-tailoring, run history, settings, profile ingestion, and model evaluation. It uses the
-typed client generated from the backend's OpenAPI schema and TanStack Query for server
-state; Material UI for components; no key ever reaches the browser. It is the only place
-UI work happens, and it is held by the same gate as the backend: typecheck, component
-tests, and build run inside `make check`.
+One React application under `frontend/`, with a single shell and four destinations:
+the workspace, run history, settings, and model evaluation. The workspace is the start
+page and holds the whole daily flow: a field for the job posting, a button to upload CV
+files, and the action that generates the CV, which stays disabled until a profile exists.
+
+Uploading does not navigate away. It opens a dialog that shows what the model read from
+the files, where the user approves, edits, or cancels, and where the draft is saved into a
+named profile ("Save", never "commit"). The app uses the typed client generated from the
+backend's OpenAPI schema and TanStack Query for server state; Material UI for components;
+no key ever reaches the browser. It is held by the same gate as the backend: typecheck,
+component tests, and build run inside `make check`.
 
 The backend specifications keep owning their behaviour. This spec owns how that
 behaviour is delivered to a person: the shell, the navigation, the client, the states,
@@ -36,7 +41,7 @@ and the tests.
 ### Shell and navigation
 
 1. As a job seeker, I want one application with a stable navigation, so that I always know where I am.
-2. As a job seeker, I want to move between tailoring, history, settings, ingestion, and evaluation without losing my place, so that a review can switch tools mid-flow.
+2. As a job seeker, I want to move between the workspace, history, settings, and evaluation without losing my review, so that a check mid-flow does not cost me the draft.
 3. As a job seeker, I want the app to tell me when the backend is unreachable, so that a blank screen is never mistaken for an empty result.
 4. As a job seeker, I want to reload the page without losing the profile I selected, so that a refresh does not reset my context.
 
@@ -77,36 +82,49 @@ and the tests.
 25. As a job seeker, I want to see the configured chains with their admission state for the selected profile, so that I know which model is trusted.
 26. As a job seeker, I want the limits shown, so that I know why a posting was rejected.
 
-### Ingestion screen
+### Upload dialog
 
-27. As a job seeker, I want to upload PDF and DOCX files and watch each section settle, so that I know the extraction is working.
-28. As a job seeker, I want a file without a text layer to be named and skipped, so that the good files still build the draft.
-29. As a job seeker, I want each draft item to show both language variants with the translated one marked, so that I know what I am approving.
-30. As a job seeker, I want to approve, reject, edit, bulk approve, and commit, so that the profile is built without the terminal.
-31. As a job seeker, I want a refused commit to show what the master still lacks, so that I can fix it and try again.
+27. As a job seeker, I want to upload PDF and DOCX files from the workspace, so that building a profile never requires leaving the page.
+28. As a job seeker, I want the upload to open a dialog showing what the model read, so that I review before anything is saved.
+29. As a job seeker, I want a file without a text layer to be named and skipped, so that the good files still build the draft.
+30. As a job seeker, I want each item to show both language variants with the translated one marked, so that I know what I am approving.
+31. As a job seeker, I want to approve, reject, edit, and bulk approve inside the dialog, so that the review happens where the upload started.
+32. As a job seeker, I want the dialog to ask which profile to save into, suggesting the selected one, so that the first upload and an update both work.
+33. As a job seeker, I want the action to be called Save, so that the vocabulary matches what happens.
+34. As a job seeker, I want Cancel to discard the draft, so that an abandoned upload leaves nothing behind.
+35. As a job seeker, I want a refused save to show what the profile still lacks, so that I can fix it without starting over.
 
 ### Evaluation screen
 
-32. As a maintainer, I want to see the ten postings of the evaluation set for the selected profile, so that I know what is measured.
-33. As a maintainer, I want to capture a posting by pasting or by importing a run, so that a case I just used is not retyped.
-34. As a maintainer, I want to annotate the expected role and the must-include bullets, so that the score means something.
-35. As a maintainer, I want to be warned that changing an annotation makes admissions stale, so that I do not lose evidence by accident.
-36. As a maintainer, I want to run the evaluation and watch each posting being scored, so that a slow model does not look frozen.
-37. As a maintainer, I want to admit or withdraw a model after a confirmation, so that the sensitive decision stays deliberate.
+36. As a maintainer, I want to see the ten postings of the evaluation set for the selected profile, so that I know what is measured.
+37. As a maintainer, I want to capture a posting by pasting or by importing a run, so that a case I just used is not retyped.
+38. As a maintainer, I want to annotate the expected role and the must-include bullets, so that the score means something.
+39. As a maintainer, I want to be warned that changing an annotation makes admissions stale, so that I do not lose evidence by accident.
+40. As a maintainer, I want to run the evaluation and watch each posting being scored, so that a slow model does not look frozen.
+41. As a maintainer, I want to admit or withdraw a model after a confirmation, so that the sensitive decision stays deliberate.
 
 ### Quality of the UI
 
-38. As a job seeker, I want a loading state that names what is loading, so that I can tell waiting from failure.
-39. As a job seeker, I want errors shown in the language of the product, with the backend's code, so that I can report a problem precisely.
-40. As a job seeker, I want the app to work with the keyboard and to have labelled controls, so that I can use it without a mouse.
+42. As a job seeker, I want a loading state that names what is loading, so that I can tell waiting from failure.
+43. As a job seeker, I want errors shown in the language of the product, with the backend's code, so that I can report a problem precisely.
+44. As a job seeker, I want the app to work with the keyboard and to have labelled controls, so that I can use it without a mouse.
 
 ## Implementation Decisions
 
 - Stack: React 19, TypeScript strict, Vite, Material UI 9 with Emotion, React Router, and
   TanStack Query. No additional data library, no CSS framework, no component kit.
-- Five routes under one shell: tailoring, history, settings, ingestion, evaluation. The
-  profile selector lives in the shell, and the selected slug is carried in the URL so a
-  refresh keeps it.
+- Four destinations under one shell: workspace, history, settings, evaluation. The
+  workspace is the root route and carries the posting field, the upload button, and the
+  generate action. The profile selector lives in the shell, and the selected slug is a
+  search parameter on every route so a refresh keeps it.
+- Uploading opens a dialog rather than navigating: it shows per-section progress, the
+  skipped files, and the bilingual items, and it ends in Save, Edit, or Cancel. Save is
+  the label; the backend route stays `commit`. Closing the dialog discards the draft.
+- The dialog asks for the target profile, preselecting the one already selected, so the
+  first upload creates a profile and a later upload can update it.
+- Generate is disabled until a profile exists, with the reason written beside it.
+- A run id in the workspace URL rehydrates the review from the run; the posting is never
+  restored.
 - The API client is generated from the checked-in OpenAPI schema into types, with a thin
   typed wrapper around `fetch`. No component calls `fetch` directly; no hand-written type
   duplicates a schema type.
