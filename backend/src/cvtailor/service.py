@@ -6,12 +6,23 @@ pipeline owns the steps themselves; the adapters own presentation.
 
 from __future__ import annotations
 
+import hashlib
 import os
 from datetime import UTC, datetime
 from typing import Any
 
 from cvtailor.agents.analyze import run_analyze
-from cvtailor.core.errors import CONFIGURATION_ERROR, INVALID_POSTING, TailorError
+from cvtailor.core.errors import (
+    CONFIGURATION_ERROR,
+    EXTRACTION_LIMIT_EXCEEDED,
+    FILE_TOO_LARGE,
+    INVALID_POSTING,
+    NO_TEXT_LAYER,
+    TOO_MANY_FILES,
+    TailorError,
+)
+from cvtailor.core.extraction import Block, extract, has_text_layer, text_length
+from cvtailor.core.ingestion import Draft, new_draft_sections
 from cvtailor.core.language import detect
 from cvtailor.core.selection import OutputLanguage, Selection
 from cvtailor.llm.client import LLMClient
@@ -23,11 +34,21 @@ from cvtailor.llm.retry import RetryingClient
 from cvtailor.llm.routing import RoutedClient
 from cvtailor.pipeline import RunResult, render_run, run_tailor
 from cvtailor.storage.corpus import append_if_new
+from cvtailor.storage.drafts import (
+    delete_draft,
+    load_draft,
+    save_blocks,
+    save_draft,
+    sweep,
+)
 from cvtailor.storage.paths import Paths, from_env
 from cvtailor.storage.profiles import load_master
-from cvtailor.storage.runs import list_runs, read_run, run_dir
+from cvtailor.storage.runs import list_runs, new_run_id, read_run, run_dir
 
 POSTING_MAX_CHARS = 100_000
+MAX_FILE_BYTES = 10 * 1024 * 1024
+MAX_FILES = 5
+MAX_EXTRACTED_CHARS = 200_000
 
 
 class TailorService:
@@ -61,6 +82,78 @@ class TailorService:
             validation_retries=self.config.validation_retries,
             now=now,
         )
+
+    def create_draft(
+        self,
+        *,
+        profile: str,
+        files: list[tuple[str, bytes]],
+        create_if_missing: bool = False,
+        now: datetime | None = None,
+    ) -> Draft:
+        sweep(self.paths)
+        if not files:
+            raise TailorError(INVALID_POSTING, "Upload at least one file.")
+        if len(files) > MAX_FILES:
+            raise TailorError(TOO_MANY_FILES, f"At most {MAX_FILES} files per draft.")
+        moment = now or datetime.now(UTC)
+        blocks: list[Block] = []
+        sources: list[dict[str, Any]] = []
+        skipped: list[dict[str, str]] = []
+        for name, data in files:
+            if len(data) > MAX_FILE_BYTES:
+                raise TailorError(FILE_TOO_LARGE, f"{name} exceeds the size limit.")
+            extracted = extract(name, data)
+            if not has_text_layer(extracted):
+                skipped.append({"name": name, "reason": NO_TEXT_LAYER})
+                continue
+            for block in extracted:
+                blocks.append(
+                    Block(
+                        index=len(blocks),
+                        source=name,
+                        location=block.location,
+                        text=block.text,
+                    )
+                )
+            sources.append(
+                {
+                    "name": name,
+                    "bytes": len(data),
+                    "hash": hashlib.sha256(data).hexdigest(),
+                    "format": name.rsplit(".", 1)[-1].lower(),
+                }
+            )
+        if not blocks:
+            raise TailorError(NO_TEXT_LAYER, "No uploaded file has a text layer.")
+        if text_length(blocks) > MAX_EXTRACTED_CHARS:
+            raise TailorError(EXTRACTION_LIMIT_EXCEEDED, "The extracted text exceeds the limit.")
+        draft = Draft(
+            id=new_run_id(moment),
+            created_at=moment.isoformat(),
+            updated_at=moment.isoformat(),
+            profile=profile,
+            create_if_missing=create_if_missing,
+            state="processing",
+            sources=sources,
+            sections=new_draft_sections(),
+            items=[],
+            extraction={
+                "blocks": len(blocks),
+                "characters": text_length(blocks),
+                "files_read": len(sources),
+                "files_skipped": skipped,
+            },
+        )
+        save_blocks(self.paths, draft.id, blocks)
+        save_draft(self.paths, draft)
+        return draft
+
+    def read_draft(self, draft_id: str) -> Draft:
+        return load_draft(self.paths, draft_id)
+
+    def discard_draft(self, draft_id: str) -> None:
+        delete_draft(self.paths, draft_id)
 
     def analyze(self, *, posting: str, now: datetime | None = None) -> dict[str, Any]:
         _require_valid_posting(posting)

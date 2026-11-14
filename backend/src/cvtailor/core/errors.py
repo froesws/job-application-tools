@@ -18,6 +18,13 @@ PAGE_OVERFLOW = "page_overflow"
 FALLBACK_EXHAUSTED = "fallback_exhausted"
 MODEL_UNAVAILABLE = "model_unavailable"
 CONFIGURATION_ERROR = "configuration_error"
+DRAFT_NOT_FOUND = "draft_not_found"
+UNSUPPORTED_FILE = "unsupported_file"
+UNREADABLE_FILE = "unreadable_file"
+NO_TEXT_LAYER = "no_text_layer"
+FILE_TOO_LARGE = "file_too_large"
+TOO_MANY_FILES = "too_many_files"
+EXTRACTION_LIMIT_EXCEEDED = "extraction_limit_exceeded"
 
 
 @dataclass(frozen=True)

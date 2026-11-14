@@ -85,6 +85,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     review = commands.add_parser("review", help="Review a run in the terminal.")
     review.add_argument("run_id")
+
+    ingest = commands.add_parser("ingest", help="Inspect an ingestion draft.")
+    ingest_commands = ingest.add_subparsers(dest="ingest_command", required=True)
+    ingest_show = ingest_commands.add_parser("show", help="Show a draft.")
+    ingest_show.add_argument("draft_id")
+    ingest_show.add_argument("--json", action="store_true")
     return parser
 
 
@@ -95,6 +101,7 @@ def main(argv: list[str] | None = None) -> int:
         "render": _render,
         "runs": _runs,
         "review": _review,
+        "ingest": _ingest,
     }
     try:
         return handlers[args.command](args)
@@ -191,6 +198,21 @@ def _edit_selection(
     )
     print(f"Derived run {result.run_id}")
     return result.run_id
+
+
+def _ingest(args: argparse.Namespace) -> int:
+    draft = TailorService().read_draft(args.draft_id)
+    payload = draft.to_dict()
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False))
+        return EXIT_OK
+    print(f"Draft {draft.id} — profile {draft.profile} — {draft.state}")
+    for name, status in draft.sections.items():
+        print(f"- {name}: {status.state}")
+    skipped = draft.extraction.get("files_skipped", [])
+    for entry in skipped:
+        print(f"- skipped {entry['name']}: {entry['reason']}")
+    return EXIT_OK
 
 
 def _required_file(path: Path | None) -> Path:

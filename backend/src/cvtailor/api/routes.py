@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, File, Form, Response, UploadFile
 from fastapi.responses import FileResponse
 
 from cvtailor.api.schemas import AnalyzeRequest, RenderRequest, TailorRequest
@@ -23,6 +23,39 @@ router = APIRouter(prefix="/api")
 @router.post("/jobs/analyze")
 def analyze(request: AnalyzeRequest) -> dict[str, Any]:
     return TailorService().analyze(posting=request.posting)
+
+
+@router.post("/ingestions", status_code=202)
+async def create_ingestion(
+    profile: str = Form(...),
+    create_if_missing: bool = Form(False),
+    files: list[UploadFile] = File(...),  # noqa: B008
+) -> dict[str, Any]:
+    payloads = [(file.filename or "file", await file.read()) for file in files]
+    draft = TailorService().create_draft(
+        profile=profile, files=payloads, create_if_missing=create_if_missing
+    )
+    return _draft_payload(draft)
+
+
+@router.get("/ingestions/{draft_id}")
+def read_ingestion(draft_id: str) -> dict[str, Any]:
+    service = TailorService()
+    draft = service.read_draft(draft_id)
+    payload = _draft_payload(draft)
+    from cvtailor.storage.drafts import load_blocks
+
+    payload["blocks"] = [
+        {"index": block.index, "location": block.location, "text": block.text}
+        for block in load_blocks(service.paths, draft_id)
+    ]
+    return payload
+
+
+@router.delete("/ingestions/{draft_id}", status_code=204)
+def discard_ingestion(draft_id: str) -> Response:
+    TailorService().discard_draft(draft_id)
+    return Response(status_code=204)
 
 
 @router.get("/profiles")
@@ -115,6 +148,16 @@ def settings() -> dict[str, Any]:
             "run_budget_s": service.config.run_budget_s,
         },
         "version": "0.1.0",
+    }
+
+
+def _draft_payload(draft: Any) -> dict[str, Any]:
+    from cvtailor.core.ingestion import counts, readiness
+
+    return {
+        **draft.to_dict(),
+        "counts": counts(draft),
+        "readiness": readiness(draft),
     }
 
 
