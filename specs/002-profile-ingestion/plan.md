@@ -15,7 +15,7 @@ and refuses to write a master that would not render. Every item is proposed
 bilingual: one variant is verified by quote, the other is translated from it and
 marked `translated`, and one decision approves both.
 
-Delivered after the 001 pipeline and before the frontend, because the first screen
+Delivered after the 001 pipeline and before the frontend spec (005), because the first screen
 a user meets is uploading a CV.
 
 ## Technical Context
