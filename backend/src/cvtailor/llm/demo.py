@@ -19,6 +19,10 @@ def demo_client(master: dict[str, Any], language: OutputLanguage) -> FakeClient:
     return FakeClient([json.dumps(_digest()), json.dumps(_selection(master))])
 
 
+def demo_analyze_client() -> FakeClient:
+    return FakeClient([json.dumps(_digest())])
+
+
 def _digest() -> dict[str, Any]:
     return {
         "enterprise_name": "Demo Company",
