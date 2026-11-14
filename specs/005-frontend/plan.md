@@ -6,10 +6,13 @@
 
 ## Summary
 
-One React application under `frontend/` that puts the five backend flows in a browser:
-tailoring, run history, settings, profile ingestion, and model evaluation. A single shell
-owns navigation and the profile selector; every screen reads and writes through a typed
-client generated from the checked-in OpenAPI schema; TanStack Query holds server state.
+One React application under `frontend/` that puts the backend flows in a browser, from a
+single workspace plus history, settings, and evaluation. The workspace is the start page:
+posting field, upload button, and the generate action that unlocks once a profile exists.
+Upload opens a dialog with the model's reading, where the user approves, edits, or cancels
+and saves into a named profile. A single shell owns navigation and the profile selector;
+every screen reads and writes through a typed client generated from the checked-in OpenAPI
+schema; TanStack Query holds server state.
 The application is held by the same gate as the backend — typecheck, component tests, and
 build run inside `make check` and in CI.
 
@@ -42,7 +45,7 @@ renders its loading state immediately and its content once the query resolves.
 chrome is English in version 1; the checked-in OpenAPI schema is the only source of types;
 no direct `fetch` in components.
 
-**Scale/Scope**: Five routes, one shell, one typed client, five viewmodels, and component
+**Scale/Scope**: Six route patterns, one shell, one typed client, five viewmodels, and component
 tests per screen.
 
 ## Constitution Check
@@ -97,7 +100,7 @@ frontend/
 │   │   ├── ScreenState.tsx  # loading, empty, and error rendering
 │   │   ├── PdfPreview.tsx
 │   │   ├── SelectionEditor.tsx
-│   │   ├── IngestionReview.tsx
+│   │   ├── IngestionDialog.tsx
 │   │   ├── EvalAnnotation.tsx
 │   │   └── EvalResult.tsx
 │   ├── viewmodels/
@@ -111,7 +114,7 @@ frontend/
 │   │   ├── TailoringPage.tsx
 │   │   ├── HistoryPage.tsx
 │   │   ├── SettingsPage.tsx
-│   │   ├── IngestionPage.tsx
+│   │   └── WorkspacePage.tsx
 │   │   └── EvaluationPage.tsx
 │   └── main.tsx
 ├── tests/
@@ -129,13 +132,14 @@ matches the project rules: UI presentational, state in hooks, HTTP in a typed cl
 
 Each slice ends in a commit and has a "Done when" condition.
 
-**F1 — Shell, client, profile selector, settings.**
-Scope: the app shell, the router, the generated client, the profile selector, the settings
-page, and the shared loading/empty/error component.
-Done when: the app runs against the backend; navigation reaches all five routes with
-placeholder pages; the selector lists profiles in slug order and persists in the URL;
-settings shows key presence and admission state without the key; the backend-unreachable
-state is visible.
+**F1 — Shell, client, workspace skeleton, profile selector, settings.**
+Scope: the app shell, the router, the generated client, the profile selector, the workspace
+with its posting field and disabled generate action, the settings page, and the shared
+loading/empty/error component.
+Done when: the app runs against the backend; navigation reaches the four destinations; the
+workspace shows the posting field and a generate action disabled with its reason; the
+selector lists profiles in slug order and persists in the URL; settings shows key presence
+and admission state without the key; the backend-unreachable state is visible.
 
 **F2 — History.**
 Scope: the runs list, the run detail, and the report/PDF links.
@@ -143,8 +147,8 @@ Done when: a CLI-created run appears with date, profile, enterprise, title, lang
 page count; reopening shows the digest, selection, warnings, and report link; an empty
 history and a deleted run directory are both handled.
 
-**F3 — Tailoring.**
-Scope: posting input, analysis, selection display, warnings, PDF preview, downloads.
+**F3 — Workspace: posting to CV.**
+Scope: submitting the posting, the digest, the selection display, warnings, PDF preview, and downloads.
 Done when: submitting a posting shows the digest and the proposed selection; the preview
 renders the actual PDF; the report downloads separately; the posting text disappears from
 the page after submission.
@@ -155,12 +159,14 @@ Done when: changing role, language, summaries, bullet order, skill priority, pro
 research posts a render with the origin run and never an analysis call; an invalid edit
 names the offending item; the derived run appears in history linked to its origin.
 
-**F5 — Ingestion screen.**
-Scope: upload, per-section progress, skipped-file warnings, bilingual review, decisions,
-and commit.
-Done when: uploading files shows each section settling; a skipped file is named; an item
-shows both variants with the translated one marked; approve, reject, edit, bulk approve,
-and commit work; a refused commit shows the missing list and keeps the draft.
+**F5 — Upload dialog.**
+Scope: the dialog, its profile target, per-section progress, skipped-file warnings,
+bilingual review, decisions, Save, and Cancel.
+Done when: the upload button opens the dialog without leaving the workspace; each section
+settles visibly; a skipped file is named; an item shows both variants with the translated
+one marked; approve, reject, edit, and bulk approve work; Save writes the profile and
+closes the dialog; a refused save shows the missing list and keeps the draft; Cancel
+discards it; the workspace enables generate for the new profile.
 
 **F6 — Evaluation screen.**
 Scope: the set list, capture, annotation, the invalidation warning, the run with progress,
