@@ -77,15 +77,10 @@ test fixture, not market signal.
 29. As a maintainer, I want the harness to run without a real key against a scripted model, so that CI can exercise the scorer.
 30. As a maintainer, I want the harness to refuse to run without the set or without a profile, so that an empty score is impossible.
 
-### Evaluation screen
+### Where the screen lives
 
-31. As a maintainer, I want a screen that lists the ten postings of the set for the selected profile, so that I can see what is being measured.
-32. As a maintainer, I want to paste a posting or import one from an existing run, so that a case I just used does not have to be typed again.
-33. As a maintainer, I want to pick the expected role and the must-include bullets by clicking, so that annotating ten postings does not mean editing JSON.
-34. As a maintainer, I want to replace a posting when the set is full, so that the tenth slot is not a dead end.
-35. As a maintainer, I want to run the evaluation from the screen and watch each posting being scored, so that I do not have to switch to a terminal.
-36. As a maintainer, I want to admit or withdraw a model from the screen after a confirmation, so that the sensitive decision stays deliberate.
-37. As a maintainer, I want the screen to warn that changing an annotation invalidates existing admissions, so that I do not lose evidence by accident.
+31. As a maintainer, I want the evaluation screen to be delivered with the rest of the UI, so that one spec owns the shell, the client, and the routes.
+32. As a maintainer, I want the screen behaviours — listing the set, capturing a posting, annotating, running, and admitting — to be specified where the other screens are, so that I do not have to look in three specs.
 
 ## Implementation Decisions
 
@@ -127,13 +122,9 @@ test fixture, not market signal.
 - Majority mode: three runs per posting; at least two must produce a valid selection,
   and their ids are merged by majority. Fewer than two valid runs makes the posting a
   failure, and an error in any run is recorded.
-- The evaluation screen is a fourth frontend route. For the selected profile it lists
-  the ten postings with their annotations, captures a posting by pasted text or by
-  importing a run's stored posting, sets the expected role and the must-include bullets
-  by picking from the profile, replaces a posting when the set is full, runs the
-  evaluation with per-posting progress, shows the metrics and verdict, and admits or
-  withdraws after a confirmation. Changing an annotation warns that existing admissions
-  become stale before saving.
+- The evaluation screen is specified in `specs/005-frontend`, on top of the routes this
+  spec exposes. This spec owns the endpoints and the rules; the screen owns its layout,
+  states, and confirmations.
 
 ## Testing Decisions
 
@@ -149,9 +140,8 @@ harness is tested at its process boundary with a scripted model.
   hash marks it stale; withdrawing marks it unadmitted.
 - **Isolation**: running the harness appends nothing to the corpus and does not
   modify the profile.
-- **Frontend**: the screen lists the set for the selected profile, imports a posting
-  from a run, saves an annotation and updates the version, warns before an annotation
-  change that would invalidate an admission, and requires a confirmation to admit.
+- **Frontend**: covered by `specs/005-frontend`. The API side is tested here: the set
+  route, the run routes, and the admission routes each have a contract test.
 - **Prior art**: the same fake-provider pattern, CLI process-boundary tests, and
   Testing Library component tests used in 001 and 002.
 
