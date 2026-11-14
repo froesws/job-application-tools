@@ -237,21 +237,15 @@ Done when: contract tests at the API seam pass with the fake across all ten rout
 drift; no response contains posting text or the key; settings report key presence
 and admission state only.
 
-**S6 — Frontend, after spec 002.**
-Scope: `frontend/` shell, profile selector, tailoring, history, settings, generated
-client, Vitest suites, and the ingestion screen that spec 002 exposes.
-Done when: `npm run typecheck`, Vitest, and `npm run build` pass and join
-`make check`; a CLI-created run opens in the UI and re-renders through
-`/api/render` without a model call; the selector lists profiles in slug order;
-settings show admission state and key presence only.
-
-S6 depends on spec 002: the first flow a user meets is uploading a CV, and that
-flow is 002's API and CLI.
+**The frontend is not a slice of this plan.** The shell, the five routes, the generated
+client, and the frontend gates are specified in `specs/005-frontend`, which owns every
+screen. This plan closes when S1 through S5 are done, the API contract is checked in, and
+quickstart scenarios 1–10 pass from the CLI and `curl`.
 
 ## Complexity Tracking
 
 | Item | Why needed | Simpler alternative rejected because |
 | --- | --- | --- |
 | `mypy` and `httpx` as development dependencies | The constitution requires a type check before merge, and FastAPI's test client needs `httpx`. | Skipping the type check leaves a required gate unimplemented; hand-rolling an HTTP test client reimplements Starlette's. |
-| Frontend adds TanStack Query and React Router | The constitution mandates both. | `.opencode/rules/rules.md` forbids TanStack Query and must be amended in the same change that adds the frontend; the constitution supersedes the rules. |
+| Frontend adds TanStack Query and React Router | The constitution mandates both. | `.opencode/rules/rules.md` forbids TanStack Query and must be amended in the same change that adds the frontend; the constitution supersedes the rules. The frontend itself is delivered by `specs/005-frontend`. |
 | `service.py` and `pipeline.py` at the package root | The CLI and the HTTP API must share one pipeline that calls both `core/` and `llm/`. | Putting it in `core/` violates the purity rule; in `api/` it couples the CLI to the web layer; in `agents/` it overloads the prompt-builder layer. |
