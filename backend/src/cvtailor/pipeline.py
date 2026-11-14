@@ -25,18 +25,24 @@ from cvtailor.core.errors import (
     TailorError,
 )
 from cvtailor.core.fallback import fallback_selection
-from cvtailor.core.gaps import pre_rank
+from cvtailor.core.gaps import build_gap_report, pre_rank
 from cvtailor.core.language import detect
 from cvtailor.core.layout import LayoutReport
 from cvtailor.core.layout import evaluate as evaluate_layout
 from cvtailor.core.render_pdf import render_pdf
 from cvtailor.core.report import render_report
-from cvtailor.core.selection import OutputLanguage, to_renderer
+from cvtailor.core.selection import OutputLanguage, Selection, to_renderer
 from cvtailor.llm.client import InvalidOutput, LLMClient
 from cvtailor.storage.corpus import append_if_new
 from cvtailor.storage.paths import Paths
 from cvtailor.storage.profiles import BLOCKLIST, profile_dir
-from cvtailor.storage.runs import commit_run, create_staging, new_run_id
+from cvtailor.storage.runs import (
+    commit_run,
+    create_staging,
+    new_run_id,
+    read_run,
+    run_dir,
+)
 
 SCHEMA_VERSION = 1
 
@@ -98,6 +104,9 @@ def run_tailor(
         layout = evaluate_layout(render_result, selection, master)
         if layout.overflow:
             raise _overflow(layout)
+        gap_report = build_gap_report(
+            master, digest, selection, layout, models_admitted=False
+        )
         _write_artifacts(
             staging=staging,
             run_id=run_id,
@@ -112,6 +121,7 @@ def run_tailor(
             fallback_used=fallback_used,
             detected_language=detect(posting),
             pre_rank=pre_rank(master, digest),
+            gap_report=gap_report,
             moment=moment,
         )
         final = commit_run(staging, paths, run_id)
@@ -191,6 +201,7 @@ def _write_artifacts(
     fallback_used: bool,
     detected_language: str,
     pre_rank: dict[str, dict[str, float]],
+    gap_report: Any,
     moment: datetime,
 ) -> None:
     model_records: dict[str, dict[str, Any]] = {
@@ -209,6 +220,16 @@ def _write_artifacts(
         "models": model_records,
         "retries": retries,
         "fallback_used": fallback_used,
+        "review": {
+            "gaps": gap_report.gaps,
+            "coverage": gap_report.coverage,
+            "red_flags": gap_report.red_flags,
+            "section_counts": gap_report.section_counts,
+            "layout_warnings": [
+                {"code": warning.code, "detail": warning.detail} for warning in layout.warnings
+            ],
+            "checklist": gap_report.checklist,
+        },
         "paths": {},
     }
     _write_json(staging / "digest.json", digest)
@@ -229,6 +250,7 @@ def _write_artifacts(
             digest=digest,
             section_counts=layout.section_counts,
             layout=layout,
+            gap_report=gap_report,
             models=model_records,
             retries=retries,
             fallback_used=fallback_used,
@@ -246,3 +268,89 @@ def _write_json(path: Path, payload: Any) -> None:
 def _digest_hash(digest: dict[str, Any]) -> str:
     canonical = json.dumps(digest, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def render_run(
+    *,
+    paths: Paths,
+    master: dict[str, Any],
+    profile: str,
+    origin_run_id: str,
+    selection: Selection,
+    now: datetime | None = None,
+) -> RunResult:
+    """Render a supplied selection against an origin run, with no model call."""
+    moment = now or datetime.now(UTC)
+    origin_record = read_run(paths, origin_run_id)
+    origin_dir = run_dir(paths, origin_run_id)
+    digest = json.loads((origin_dir / "digest.json").read_text(encoding="utf-8"))
+    _check_blocklist(paths, profile, master, selection)
+    run_id = new_run_id(moment)
+    staging = create_staging(paths, run_id)
+    try:
+        shutil.copy2(origin_dir / "digest.json", staging / "digest.json")
+        analysis_path = origin_dir / "analysis.json"
+        if analysis_path.is_file():
+            shutil.copy2(analysis_path, staging / "analysis.json")
+        render_result = render_pdf(master, to_renderer(selection), staging / "cv.pdf")
+        layout = evaluate_layout(render_result, selection, master)
+        if layout.overflow:
+            raise _overflow(layout)
+        gap_report = build_gap_report(
+            master, digest, selection, layout, models_admitted=False
+        )
+        model_records: dict[str, dict[str, Any]] = origin_record.get("models", {})
+        record = {
+            "schema_version": SCHEMA_VERSION,
+            "id": run_id,
+            "created_at": moment.isoformat(),
+            "profile": profile,
+            "origin_run_id": origin_run_id,
+            "mode": "render",
+            "requested_language": selection.language,
+            "render_language": "pt" if selection.language == "pt-BR" else "en",
+            "digest_hash": origin_record.get("digest_hash", ""),
+            "models": model_records,
+            "retries": {},
+            "fallback_used": False,
+            "review": {
+                "gaps": gap_report.gaps,
+                "coverage": gap_report.coverage,
+                "red_flags": gap_report.red_flags,
+                "section_counts": gap_report.section_counts,
+                "layout_warnings": [
+                    {"code": warning.code, "detail": warning.detail}
+                    for warning in layout.warnings
+                ],
+                "checklist": gap_report.checklist,
+            },
+            "paths": {},
+        }
+        _write_json(staging / "selection.json", selection.model_dump())
+        _write_json(staging / "run.json", record)
+        (staging / "report.md").write_text(
+            render_report(
+                digest=digest,
+                section_counts=layout.section_counts,
+                layout=layout,
+                gap_report=gap_report,
+                models=model_records,
+                retries={},
+                fallback_used=False,
+                profile=profile,
+            ),
+            encoding="utf-8",
+        )
+        final = commit_run(staging, paths, run_id)
+    except Exception:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    return RunResult(
+        run_id=run_id,
+        run_dir=final,
+        pages=layout.pages,
+        layout=layout,
+        models=model_records,
+        retries={},
+        fallback_used=False,
+    )

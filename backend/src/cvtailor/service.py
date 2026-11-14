@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any
 
 from cvtailor.core.errors import CONFIGURATION_ERROR, INVALID_POSTING, TailorError
-from cvtailor.core.selection import OutputLanguage
+from cvtailor.core.selection import OutputLanguage, Selection
 from cvtailor.llm.client import LLMClient
 from cvtailor.llm.config import LLMConfig, load
 from cvtailor.llm.demo import demo_client
@@ -19,7 +19,7 @@ from cvtailor.llm.openai_compatible import OpenAICompatibleClient
 from cvtailor.llm.registry import resolve
 from cvtailor.llm.retry import RetryingClient
 from cvtailor.llm.routing import RoutedClient
-from cvtailor.pipeline import RunResult, run_tailor
+from cvtailor.pipeline import RunResult, render_run, run_tailor
 from cvtailor.storage.paths import Paths, from_env
 from cvtailor.storage.profiles import load_master
 
@@ -56,6 +56,22 @@ class TailorService:
             models=models,
             validation_retries=self.config.validation_retries,
             now=now,
+        )
+
+    def render(
+        self,
+        *,
+        profile: str,
+        origin_run_id: str,
+        selection: Selection,
+    ) -> RunResult:
+        master = load_master(self.paths, profile)
+        return render_run(
+            paths=self.paths,
+            master=master,
+            profile=profile,
+            origin_run_id=origin_run_id,
+            selection=selection,
         )
 
     def _client(self, master: dict[str, Any], language: OutputLanguage) -> LLMClient:

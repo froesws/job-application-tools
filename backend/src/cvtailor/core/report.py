@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from cvtailor.core.gaps import GapReport
 from cvtailor.core.layout import LayoutReport
 
 
@@ -17,6 +18,7 @@ def render_report(
     digest: dict[str, Any],
     section_counts: dict[str, int],
     layout: LayoutReport,
+    gap_report: GapReport,
     models: dict[str, dict[str, Any]],
     retries: dict[str, int],
     fallback_used: bool,
@@ -44,6 +46,18 @@ def render_report(
         "",
     ]
     lines.extend(f"- {name}: {count}" for name, count in section_counts.items())
+    lines.extend(["", "## Review", "", f"Coverage: {gap_report.coverage:.0%}"])
+    if gap_report.gaps:
+        lines.extend(
+            f"- gap: {gap['skill']} ({gap['severity']})" for gap in gap_report.gaps
+        )
+    else:
+        lines.append("- no gaps")
+    lines_red = [f"- {flag['code']}: {flag['message']}" for flag in gap_report.red_flags]
+    lines.extend(["", "### Red flags", ""])
+    lines.extend(lines_red or ["- none"])
+    lines.extend(["", "### Checklist", ""])
+    lines.extend(f"- [ ] {item}" for item in gap_report.checklist)
     lines.extend(["", "## Models", "", f"Fallback used: {'yes' if fallback_used else 'no'}"])
     for step, record in models.items():
         state = "admitted" if record.get("admitted") else "model_unadmitted"
