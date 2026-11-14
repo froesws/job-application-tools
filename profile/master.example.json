@@ -1,0 +1,30 @@
+{
+  "person": {
+    "name": "Exemplo Usuário",
+    "phone_intl": "+55 11 99999-0000",
+    "phone_local": "(11) 99999-0000",
+    "email": "exemplo@email.com",
+    "location_en": "São Paulo · Brazil",
+    "location_pt": "São Paulo · Brasil",
+    "links": [{"label": "GitHub", "url": "https://github.com/exemplo"}]
+  },
+  "role_options": [
+    {"id": "sweng", "en": "Software Engineer", "pt": "Engenheiro de Software"}
+  ],
+  "summary_blocks": [
+    {"id": "s1", "lead": true, "en": "Software engineer with experience in Python and TypeScript.", "pt": "Engenheiro de software com experiência em Python e TypeScript."}
+  ],
+  "skills": [
+    {"label_en": "Languages", "label_pt": "Linguagens", "core": ["Python", {"en": "TypeScript", "pt": "TypeScript"}], "extra": ["Rust"]}
+  ],
+  "experience": [
+    {
+      "header_en": "Acme Corp", "header_pt": "Acme Corp", "date_en": "2020–2024", "date_pt": "2020–2024",
+      "roles": [{"id": "role1", "title_en": "Engineer", "title_pt": "Engenheiro", "date_en": "2020–2024", "date_pt": "2020–2024", "intro_en": "Built things.", "intro_pt": "Construiu coisas.", "bullets": [{"id": "b1", "en": "Did X.", "pt": "Fez X."}]}]
+    }
+  ],
+  "research": [],
+  "projects": [{"id": "p1", "en": "Project A", "pt": "Projeto A"}],
+  "education": [{"header_en": "BSc CS", "header_pt": "Bacharelado em Ciência da Computação", "date": "2018", "desc_en": "Computer Science", "desc_pt": "Ciência da Computação"}],
+  "certs": {"en": "Cert A · Cert B", "pt": "Cert A · Cert B"}
+}

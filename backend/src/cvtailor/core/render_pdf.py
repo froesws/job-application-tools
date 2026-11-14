@@ -15,7 +15,14 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    HRFlowable,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 NAVY = colors.HexColor("#1B2A41")
 ACCENT = colors.HexColor("#1F5F8B")
@@ -288,7 +295,7 @@ if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser(description="Render a CV PDF from a selection JSON")
     ap.add_argument("selection")
-    ap.add_argument("--master", default=str(Path(__file__).with_name("master_cv.json")))
+    ap.add_argument("--master", default=str(Path(__file__).resolve().parents[4] / "profile" / "master.json"))
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     print(render_pdf(load_master(a.master), json.loads(Path(a.selection).read_text(encoding="utf-8")), a.out))
