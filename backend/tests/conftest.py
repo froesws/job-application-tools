@@ -6,6 +6,7 @@ renderer enforces, so any test that renders it gets a real one-page PDF.
 
 from __future__ import annotations
 
+import copy
 import json
 from collections.abc import Iterator
 from pathlib import Path
@@ -108,6 +109,12 @@ class ScriptedLLM:
         if isinstance(answer, Exception):
             raise answer
         return answer
+
+
+@pytest.fixture()
+def master() -> dict[str, Any]:
+    """A fresh copy of the minimal profile, safe to mutate in a test."""
+    return copy.deepcopy(MASTER_MINIMAL)
 
 
 @pytest.fixture()
